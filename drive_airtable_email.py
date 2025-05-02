@@ -32,6 +32,14 @@ def log(message):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"[{timestamp}] {message}")
 
+def show_processed():
+    if not os.path.exists(STATE_FILE):
+        log("📄 No processed folders file found.")
+        return
+    with open(STATE_FILE, "r") as f:
+        lines = f.readlines()
+        log(f"📄 Processed folders ({len(lines)}): {', '.join([l.strip() for l in lines])}")
+
 def auth_google_drive():
     creds = service_account.Credentials.from_service_account_file(
         SERVICE_ACCOUNT_FILE, scopes=SCOPES)
@@ -111,15 +119,21 @@ def main():
     log("🚀 Script triggered.")
     drive = auth_google_drive()
     folders = get_drive_folders(drive)
+    log(f"📁 Found {len(folders)} folders.")
+
     processed = load_processed()
+    log(f"✅ {len(processed)} folders already processed.")
+    show_processed()
 
     for folder in folders:
         name = folder['name']
+        log(f"🔍 Checking folder: {name}")
         if name in processed:
+            log(f"⏩ Skipping already processed folder: {name}")
             continue
 
         twin_sticker = name.strip().split("_")[-1]
-        log(f"Looking up twin sticker: {twin_sticker}")
+        log(f"🔎 Looking up twin sticker: {twin_sticker}")
         record = find_airtable_record(twin_sticker)
         if not record:
             log(f"❌ No Airtable match for sticker {twin_sticker}")
@@ -132,7 +146,7 @@ def main():
 
         link = create_share_link(drive, folder['id'])
 
-        subject = f"Your Scans Are Ready - Roll {twin_sticker}"       
+        subject = f"Your Photos Are Ready - Roll {twin_sticker}"
         body = f"""\
 Hi there,
 
@@ -148,6 +162,8 @@ www.gilplaquet.com
         mark_email_sent(record['id'])
         save_processed(name)
         log(f"✅ Link sent to {email} for folder '{name}'")
+
+# === Flask app ===
 
 app = Flask(__name__)
 
