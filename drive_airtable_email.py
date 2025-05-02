@@ -1,11 +1,18 @@
 import os
 import smtplib
 import requests
+import base64
 from datetime import datetime
 from email.message import EmailMessage
-from flask import Flask
+from flask import Flask, request
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
+
+# === REBUILD service_account.json from env variable ===
+encoded = os.getenv("GOOGLE_CREDS_BASE64")
+if encoded:
+    with open("service_account.json", "wb") as f:
+        f.write(base64.b64decode(encoded))
 
 # === CONFIGURATION FROM ENV ===
 
@@ -19,6 +26,7 @@ SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASS = os.getenv("SMTP_PASS")
 
 DRIVE_FOLDER_ID = os.getenv("DRIVE_FOLDER_ID")
+TRIGGER_TOKEN = os.getenv("TRIGGER_TOKEN")
 
 STATE_FILE = "processed_folders.txt"
 SERVICE_ACCOUNT_FILE = "service_account.json"
@@ -39,8 +47,6 @@ def auth_google_drive():
         SERVICE_ACCOUNT_FILE, scopes=SCOPES)
     return build('drive', 'v3', credentials=creds)
 
-# === GOOGLE DRIVE LOGIC ===
-
 def get_drive_folders(service):
     results = service.files().list(
         q=f"'{DRIVE_FOLDER_ID}' in parents and mimeType='application/vnd.google-apps.folder'",
@@ -60,11 +66,8 @@ def find_airtable_record(twin_sticker):
     headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
     formula = f"{{Twin Sticker}}='{twin_sticker}'"
     params = {"filterByFormula": formula}
-
-    log(f"🔍 DEBUG URL: {url}")
-    log(f"🔍 DEBUG Headers: {headers}")
+    
     log(f"Airtable query: {formula}")
-
     resp = requests.get(url, headers=headers, params=params)
     log(f"Airtable response: {resp.text}")
 
@@ -92,7 +95,7 @@ def mark_email_sent(record_id):
     else:
         log(f"❌ Failed to update Airtable record {record_id}: {response.text}")
 
-# === EMAIL ===
+# === EMAIL LOGIC ===
 
 def send_email(to_address, subject, body):
     msg = EmailMessage()
@@ -105,7 +108,7 @@ def send_email(to_address, subject, body):
         server.login(SMTP_USER, SMTP_PASS)
         server.send_message(msg)
 
-# === PROCESSED FOLDER TRACKING ===
+# === PROCESSED TRACKING ===
 
 def load_processed():
     if not os.path.exists(STATE_FILE):
@@ -129,9 +132,9 @@ def main():
         if name in processed:
             continue
 
-        twin_sticker = name.strip().split("_")[-1]  # Adjust if needed
+        twin_sticker = name.strip().split("_")[-1]
         log(f"Looking up twin sticker: {twin_sticker}")
-
+        
         record = find_airtable_record(twin_sticker)
         if not record:
             log(f"❌ No Airtable match for sticker {twin_sticker}")
@@ -152,16 +155,20 @@ def main():
         save_processed(name)
         log(f"✅ Link sent to {email} for folder '{name}'")
 
-# === FLASK SERVER FOR TRIGGERING ===
+# === FLASK SERVER ===
 
 app = Flask(__name__)
 
 @app.route('/')
 def index():
-    return "✅ Replit is online."
+    return "✅ Render is online."
 
 @app.route('/trigger')
 def trigger():
+    token = request.args.get("token")
+    if token != TRIGGER_TOKEN:
+        log("❌ Unauthorized trigger attempt")
+        return "❌ Unauthorized", 403
     try:
         main()
         return "✅ Script ran successfully."
