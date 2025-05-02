@@ -73,20 +73,16 @@ def find_airtable_record(twin_sticker):
     records = resp.json().get("records", [])
     return records[0] if records else None
 
-def mark_email_sent(record_id):
+def update_airtable_record(record_id, fields):
     url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}/{record_id}"
     headers = {
         "Authorization": f"Bearer {AIRTABLE_API_KEY}",
         "Content-Type": "application/json"
     }
-    data = {
-        "fields": {
-            "Email Sent": True
-        }
-    }
+    data = {"fields": fields}
     response = requests.patch(url, headers=headers, json=data)
     if response.status_code == 200:
-        log(f"✅ Airtable updated: Email Sent box checked for record {record_id}")
+        log(f"✅ Airtable updated: {fields}")
     else:
         log(f"❌ Failed to update Airtable record {record_id}: {response.text}")
 
@@ -96,6 +92,13 @@ def send_email(to_address, subject, body):
     msg["To"] = to_address
     msg["Subject"] = subject
     msg.set_content(body)
+
+    html_body = body.replace("\n", "<br>\n") + "<br><br><img src='https://yourdomain.com/logo.png' alt='Logo' style='width:200px;'>"
+    msg.add_alternative(f"""
+    <html>
+        <body>{html_body}</body>
+    </html>
+    """, subtype='html')
 
     try:
         log(f"📤 Sending email to {to_address} via {SMTP_SERVER}...")
@@ -141,6 +144,10 @@ def main():
             log(f"❌ No Airtable match for sticker {twin_sticker}")
             continue
 
+        if record['fields'].get('Email Sent') == True:
+            log(f"⛔ Email already sent for sticker {twin_sticker}, skipping.")
+            continue
+
         email = record['fields'].get('Client Email')
         if not email:
             log(f"❌ No email found for record with sticker {twin_sticker}")
@@ -164,7 +171,10 @@ www.gilplaquet.com
         """
         log(f"📧 Preparing to send email to {email} for roll {twin_sticker}")
         send_email(email, subject, body)
-        mark_email_sent(record['id'])
+        update_airtable_record(record['id'], {
+            "Email Sent": True,
+            "Drive URL": link
+        })
         save_processed(name)
         log(f"✅ Link sent to {email} for folder '{name}'")
 
