@@ -82,10 +82,11 @@ def mark_email_sent(record_id):
 
 def send_email(to_address, subject, body):
     msg = EmailMessage()
-msg["From"] = "Gil Plaquet FilmLab <filmlab@gilplaquet.com>"
+    msg["From"] = "Gil Plaquet FilmLab <filmlab@gilplaquet.com>"
     msg["To"] = to_address
     msg["Subject"] = subject
     msg.set_content(body)
+
     with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
         server.starttls()
         server.login(SMTP_USER, SMTP_PASS)
