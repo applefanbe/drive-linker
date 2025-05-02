@@ -2,15 +2,12 @@ import os
 import smtplib
 import requests
 import base64
-import logging
+import sys
 from datetime import datetime
 from email.message import EmailMessage
 from flask import Flask, request
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
-
-# === Logging setup ===
-logging.basicConfig(level=logging.DEBUG)
 
 # === Rebuild service_account.json from env var ===
 encoded = os.getenv("GOOGLE_CREDS_BASE64")
@@ -34,7 +31,8 @@ SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 def log(message):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    print(f"[{timestamp}] {message}")
+    sys.stdout.write(f"[{timestamp}] {message}\n")
+    sys.stdout.flush()
 
 def show_processed():
     if not os.path.exists(STATE_FILE):
@@ -161,11 +159,10 @@ You can download them from the link below:
 
 Thanks for sending in your film!
 
-Gil
-
 Gil Plaquet Photography
 www.gilplaquet.com
         """
+        log(f"📧 Preparing to send email to {email} for roll {twin_sticker}")
         send_email(email, subject, body)
         mark_email_sent(record['id'])
         save_processed(name)
