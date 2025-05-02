@@ -93,7 +93,7 @@ def send_email(to_address, subject, body):
     msg["Subject"] = subject
     msg.set_content(body)
 
-    html_body = body.replace("\n", "<br>\n") + "<br><br><img src='https://yourdomain.com/logo.png' alt='Logo' style='width:200px;'>"
+    html_body = body.replace("\n", "<br>\n") + "<br><br><img src='https://cdn.sumup.store/shops/06666267/settings/th480/0d8f17d0-470b-4a10-8ae5-4e476e295e16.png' alt='Logo' style='width:200px;'>"
     msg.add_alternative(f"""
     <html>
         <body>{html_body}</body>
