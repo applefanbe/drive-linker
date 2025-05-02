@@ -95,16 +95,10 @@ def send_email(to_address, subject, body):
 
     body_html = body.replace('\n', '<br>')
     html_body = f"""
-    <table width='100%' cellpadding='0' cellspacing='0' border='0'>
-      <tr>
-        <td style='vertical-align: top; padding-right: 20px;'>
-          {body_html}
-        </td>
-        <td style='text-align: right; vertical-align: top;'>
-          <img src='https://cdn.sumup.store/shops/06666267/settings/th480/0d8f17d0-470b-4a10-8ae5-4e476e295e16.png' alt='Logo' style='width: 150px;'>
-        </td>
-      </tr>
-    </table>
+    <div style='text-align: center;'>
+      <img src='https://cdn.sumup.store/shops/06666267/settings/th480/0d8f17d0-470b-4a10-8ae5-4e476e295e16.png' alt='Logo' style='width: 150px; margin-bottom: 20px;'>
+    </div>
+    <div style='font-family: sans-serif;'>{body_html}</div>
     """
 
     msg.add_alternative(f"""
@@ -172,14 +166,16 @@ def main():
         body = f"""
 Hi there,
 
-Good news, (one of) the roll(s) you sent in for development just got scanned.
+Good news! One of the rolls you sent in for development just got scanned.
 You can download them from the link below:
 
 {link}
 
 Thanks for sending in your film!
 
-Gil Plaquet
+Gil
+
+Gil Plaquet Photography
 www.gilplaquet.com
         """
         log(f"📧 Preparing to send email to {email} for roll {twin_sticker}")
