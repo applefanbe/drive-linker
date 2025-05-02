@@ -93,18 +93,19 @@ def send_email(to_address, subject, body):
     msg["Subject"] = subject
     msg.set_content(body)
 
-    html_body = f"""
-    <table width='100%' cellpadding='0' cellspacing='0' border='0'>
-      <tr>
-        <td style='vertical-align: top; padding-right: 20px;'>
-          {body.replace('\n', '<br>')}
-        </td>
-        <td style='text-align: right; vertical-align: top;'>
-          <img src='https://yourdomain.com/logo.png' alt='Logo' style='width: 150px;'>
-        </td>
-      </tr>
-    </table>
-    """
+    body_html = body.replace('\n', '<br>')
+html_body = f"""
+<table width='100%' cellpadding='0' cellspacing='0' border='0'>
+  <tr>
+    <td style='vertical-align: top; padding-right: 20px;'>
+      {body_html}
+    </td>
+    <td style='text-align: right; vertical-align: top;'>
+      <img src='https://yourdomain.com/logo.png' alt='Logo' style='width: 150px;'>
+    </td>
+  </tr>
+</table>
+"""
 
     msg.add_alternative(f"""
     <html>
