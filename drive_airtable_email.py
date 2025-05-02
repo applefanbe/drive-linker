@@ -30,9 +30,7 @@ SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 def log(message):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    with open("activity_log.txt", "a") as f:
-        f.write(f"[{timestamp}] {message}\n")
-    print(message)
+    print(f"[{timestamp}] {message}")
 
 def auth_google_drive():
     creds = service_account.Credentials.from_service_account_file(
@@ -104,6 +102,7 @@ def save_processed(folder_name):
         f.write(folder_name + "\n")
 
 def main():
+    log("🚀 Script triggered.")
     drive = auth_google_drive()
     folders = get_drive_folders(drive)
     processed = load_processed()
@@ -128,7 +127,7 @@ def main():
         link = create_share_link(drive, folder['id'])
 
         subject = f"Your film roll #{twin_sticker} is ready!"
-        body = f"""\
+        body = f"""
 Hi there,
 
 Good news! One of the rolls you sent in for development just got scanned.
@@ -141,6 +140,7 @@ Gil
 Gil Plaquet Photography
 www.gilplaquet.com
 """
+
         send_email(email, subject, body)
         mark_email_sent(record['id'])
         save_processed(name)
