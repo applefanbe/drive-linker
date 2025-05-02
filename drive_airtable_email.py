@@ -93,7 +93,19 @@ def send_email(to_address, subject, body):
     msg["Subject"] = subject
     msg.set_content(body)
 
-    html_body = body.replace("\n", "<br>\n") + "<br><br><img src='https://cdn.sumup.store/shops/06666267/settings/th480/0d8f17d0-470b-4a10-8ae5-4e476e295e16.png' alt='Logo' style='width:200px;'>"
+    html_body = f"""
+    <table width='100%' cellpadding='0' cellspacing='0' border='0'>
+      <tr>
+        <td style='vertical-align: top; padding-right: 20px;'>
+          {body.replace('\n', '<br>')}
+        </td>
+        <td style='text-align: right; vertical-align: top;'>
+          <img src='https://yourdomain.com/logo.png' alt='Logo' style='width: 150px;'>
+        </td>
+      </tr>
+    </table>
+    """
+
     msg.add_alternative(f"""
     <html>
         <body>{html_body}</body>
@@ -165,6 +177,8 @@ You can download them from the link below:
 {link}
 
 Thanks for sending in your film!
+
+Gil
 
 Gil Plaquet Photography
 www.gilplaquet.com
