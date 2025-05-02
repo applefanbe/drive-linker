@@ -94,7 +94,7 @@ def send_email(to_address, subject, body):
     msg["To"] = to_address
     msg["Bcc"] = bcc_address
     log(f"📥 BCC added: {bcc_address}")
- msg["Subject"] = subject
+    msg["Subject"] = subject
     msg.set_content(body)
 
     body_html = body.replace('\n', '<br>')
