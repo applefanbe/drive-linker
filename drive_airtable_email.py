@@ -94,13 +94,13 @@ def send_email(to_address, subject, body):
     msg["To"] = to_address
     msg["Bcc"] = bcc_address
     log(f"📥 BCC added: {bcc_address}")
- = subject
+ msg["Subject"] = subject
     msg.set_content(body)
 
     body_html = body.replace('\n', '<br>')
     html_body = f"""
     <div style='text-align: center;'>
-      <img src='https://yourdomain.com/logo.png' alt='Logo' style='width: 150px; margin-bottom: 20px;'>
+      <img src='https://cdn.sumup.store/shops/06666267/settings/th480/0d8f17d0-470b-4a10-8ae5-4e476e295e16.png' alt='Logo' style='width: 150px; margin-bottom: 20px;'>
     </div>
     <div style='font-family: sans-serif;'>{body_html}</div>
     """
@@ -166,7 +166,7 @@ def main():
 
         link = create_share_link(drive, folder['id'])
 
-        subject = f"Your Scans Are Ready - Roll {twin_sticker}"
+        subject = f"Your Photos Are Ready - Roll {twin_sticker}"
         body = f"""
 Hi there,
 
@@ -175,7 +175,7 @@ You can download them from the link below:
 
 {link}
 
-Thanks for sending in your film!
+Thanks again for sending in your film!
 
 Gil Plaquet
 www.gilplaquet.com
