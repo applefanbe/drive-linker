@@ -18,7 +18,7 @@ if encoded:
 AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
 AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID")
 AIRTABLE_TABLE_NAME = os.getenv("AIRTABLE_TABLE_NAME")
-SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+SMTP_SERVER = os.getenv("SMTP_SERVER")
 SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
 SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASS = os.getenv("SMTP_PASS")
@@ -82,7 +82,7 @@ def mark_email_sent(record_id):
 
 def send_email(to_address, subject, body):
     msg = EmailMessage()
-    msg["From"] = "Your Lab <" + SMTP_USER + ">"
+msg["From"] = "Gil Plaquet FilmLab <filmlab@gilplaquet.com>"
     msg["To"] = to_address
     msg["Subject"] = subject
     msg.set_content(body)
@@ -126,21 +126,8 @@ def main():
 
         link = create_share_link(drive, folder['id'])
 
-        subject = f"Your film roll #{twin_sticker} is ready!"
-        body = f"""
-Hi there,
-
-Good news! One of the rolls you sent in for development just got scanned.
-You can download them from the link below. Thanks for sending in your film.
-
-{link}
-
-Gil
-
-Gil Plaquet Photography
-www.gilplaquet.com
-"""
-
+        subject = f"Your Scans Are Ready - Roll {twin_sticker}"
+        body = f"Hello,\n\nHere are your scans:\n{link}\n\nThanks!\n\nGil"
         send_email(email, subject, body)
         mark_email_sent(record['id'])
         save_processed(name)
