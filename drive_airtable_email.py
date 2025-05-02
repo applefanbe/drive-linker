@@ -87,10 +87,15 @@ def send_email(to_address, subject, body):
     msg["Subject"] = subject
     msg.set_content(body)
 
-    with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-        server.starttls()
-        server.login(SMTP_USER, SMTP_PASS)
-        server.send_message(msg)
+    try:
+        log(f"📤 Sending email to {to_address} via {SMTP_SERVER}...")
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASS)
+            server.send_message(msg)
+        log("✅ Email sent successfully.")
+    except Exception as e:
+        log(f"❌ Email failed to send: {e}")
 
 def load_processed():
     if not os.path.exists(STATE_FILE):
@@ -127,8 +132,18 @@ def main():
 
         link = create_share_link(drive, folder['id'])
 
-        subject = f"Your Scans Are Ready - Roll {twin_sticker}"
-        body = f"Hello,\n\nHere are your scans:\n{link}\n\nThanks!\n\nGil"
+        subject = f"Your Scans Are Ready - Roll {twin_sticker}"       
+        body = f"""\
+Hi there,
+
+Good news! One of the rolls you sent in for development just got scanned.
+You can download them from the link below. Thanks for sending in your film.
+
+{link}
+
+Gil Plaquet Photography
+www.gilplaquet.com
+"""
         send_email(email, subject, body)
         mark_email_sent(record['id'])
         save_processed(name)
