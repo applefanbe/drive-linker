@@ -99,7 +99,7 @@ def mark_email_sent(record_id):
 
 def send_email(to_address, subject, body):
     msg = EmailMessage()
-    msg["From"] = SMTP_USER
+    msg["From"] = "Gil Plaquet FilmLab <filmlab@gilplaquet.com>"
     msg["To"] = to_address
     msg["Subject"] = subject
     msg.set_content(body)
@@ -147,8 +147,20 @@ def main():
 
         link = create_share_link(drive, folder['id'])
 
-        subject = f"Your Photos Are Ready - Roll {twin_sticker}"
-        body = f"Hello,\n\nHere is your film roll:\n{link}\n\nThanks!"
+        subject = f"Your Films Scans Are Ready - Roll {twin_sticker}"
+       body = f"""\
+Hi there,
+
+Good news! One of the rolls you sent in for development just got scanned.
+You can download them from the link below. Thanks for sending in your film.
+
+{link}
+
+Gil
+
+Gil Plaquet Photography
+www.gilplaquet.com
+"""
         send_email(email, subject, body)
         mark_email_sent(record['id'])
 
