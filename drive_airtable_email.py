@@ -94,18 +94,18 @@ def send_email(to_address, subject, body):
     msg.set_content(body)
 
     body_html = body.replace('\n', '<br>')
-html_body = f"""
-<table width='100%' cellpadding='0' cellspacing='0' border='0'>
-  <tr>
-    <td style='vertical-align: top; padding-right: 20px;'>
-      {body_html}
-    </td>
-    <td style='text-align: right; vertical-align: top;'>
-      <img src='https://yourdomain.com/logo.png' alt='Logo' style='width: 150px;'>
-    </td>
-  </tr>
-</table>
-"""
+    html_body = f"""
+    <table width='100%' cellpadding='0' cellspacing='0' border='0'>
+      <tr>
+        <td style='vertical-align: top; padding-right: 20px;'>
+          {body_html}
+        </td>
+        <td style='text-align: right; vertical-align: top;'>
+          <img src='https://yourdomain.com/logo.png' alt='Logo' style='width: 150px;'>
+        </td>
+      </tr>
+    </table>
+    """
 
     msg.add_alternative(f"""
     <html>
@@ -172,16 +172,14 @@ def main():
         body = f"""
 Hi there,
 
-Good news! One of the rolls you sent in for development just got scanned.
+Good news, (one of) the roll(s) you sent in for development just got scanned.
 You can download them from the link below:
 
 {link}
 
 Thanks for sending in your film!
 
-Gil
-
-Gil Plaquet Photography
+Gil Plaquet
 www.gilplaquet.com
         """
         log(f"📧 Preparing to send email to {email} for roll {twin_sticker}")
