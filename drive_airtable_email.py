@@ -101,7 +101,7 @@ def send_email(to_address, subject, body):
           {body_html}
         </td>
         <td style='text-align: right; vertical-align: top;'>
-          <img src='https://yourdomain.com/logo.png' alt='Logo' style='width: 150px;'>
+          <img src='https://cdn.sumup.store/shops/06666267/settings/th480/0d8f17d0-470b-4a10-8ae5-4e476e295e16.png' alt='Logo' style='width: 150px;'>
         </td>
       </tr>
     </table>
