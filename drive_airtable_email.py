@@ -10,7 +10,9 @@ import hmac
 import hashlib
 from datetime import datetime
 from email.message import EmailMessage
-from flask import Flask, request
+from flask import Flask, request, render_template_string
+from b2sdk.v2 import InMemoryAccountInfo, B2Api
+from urllib.parse import quote
 
 # === Configuration ===
 AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
@@ -22,17 +24,38 @@ SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASS = os.getenv("SMTP_PASS")
 TRIGGER_TOKEN = os.getenv("TRIGGER_TOKEN")
 STATE_FILE = "processed_folders.txt"
-BUNNY_STORAGE_ZONE = os.getenv("BUNNY_STORAGE_ZONE")
-BUNNY_BASE_URL = os.getenv("BUNNY_BASE_URL")
-BUNNY_TOKEN_KEY = os.getenv("BUNNY_TOKEN_KEY")
+B2_KEY_ID = os.getenv("B2_KEY_ID")
+B2_APP_KEY = os.getenv("B2_APP_KEY")
+B2_BUCKET_NAME = os.getenv("B2_BUCKET_NAME")
+B2_DOWNLOAD_URL = os.getenv("B2_DOWNLOAD_URL")
 
+b2_api = None
 
+app = Flask(__name__)
+
+# === B2 Signed URL Generation ===
+def init_b2():
+    global b2_api
+    if b2_api is None:
+        info = InMemoryAccountInfo()
+        b2_api = B2Api(info)
+        b2_api.authorize_account("production", B2_KEY_ID, B2_APP_KEY)
+
+def generate_signed_url(file_path, expires_in=3600):
+    init_b2()
+    bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
+    file_name = quote(file_path)
+    download_url = f"{B2_DOWNLOAD_URL}/{file_name}"
+    auth_token = bucket.get_download_authorization(file_path, expires_in)
+    return f"{download_url}?Authorization={auth_token}"
+
+# === Logging ===
 def log(message):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     sys.stdout.write(f"[{timestamp}] {message}\n")
     sys.stdout.flush()
 
-
+# === Airtable Utilities ===
 def show_processed():
     if not os.path.exists(STATE_FILE):
         log("📄 No processed folders file found.")
@@ -40,7 +63,6 @@ def show_processed():
     with open(STATE_FILE, "r") as f:
         lines = f.readlines()
         log(f"📄 Processed folders ({len(lines)}): {', '.join([l.strip() for l in lines])}")
-
 
 def update_airtable_record(record_id, fields):
     url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}/{record_id}"
@@ -54,7 +76,6 @@ def update_airtable_record(record_id, fields):
         log(f"✅ Airtable updated: {fields}")
     else:
         log(f"❌ Failed to update Airtable record {record_id}: {response.text}")
-
 
 def find_airtable_record(twin_sticker):
     url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
@@ -70,20 +91,9 @@ def find_airtable_record(twin_sticker):
     records = resp.json().get("records", [])
     return records[0] if records else None
 
-
+# === Email Sending ===
 def generate_password(length=8):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
-
-
-def generate_signed_url(file_path, expires_in=86400):
-    expires = int(time.time()) + expires_in
-    path = f"/{BUNNY_STORAGE_ZONE}/{file_path}"
-    string_to_sign = f"{path}{expires}"
-    token = base64.urlsafe_b64encode(hmac.new(
-        BUNNY_TOKEN_KEY.encode(), string_to_sign.encode(), hashlib.sha256
-    ).digest()).decode().rstrip("=")
-    return f"{BUNNY_BASE_URL}/{file_path}?token={token}&expires={expires}"
-
 
 def send_email(to_address, subject, body):
     bcc_address = "filmlab@gilplaquet.com"
@@ -92,14 +102,13 @@ def send_email(to_address, subject, body):
     msg["From"] = "Gil Plaquet FilmLab <filmlab@gilplaquet.com>"
     msg["To"] = to_address
     msg["Bcc"] = bcc_address
-    log(f"📥 BCC added: {bcc_address}")
     msg["Subject"] = subject
     msg.set_content(body)
 
     body_html = body.replace('\n', '<br>')
     html_body = f"""
     <div style='text-align: center;'>
-      <img src='https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png' alt='Logo' style='width: 150px; margin-bottom: 20px;'>
+      <img src='https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png' alt='Logo' style='width: 250px; margin-bottom: 20px;'>
     </div>
     <div style='font-family: sans-serif;'>{body_html}</div>
     """
@@ -120,55 +129,50 @@ def send_email(to_address, subject, body):
     except Exception as e:
         log(f"❌ Email failed to send: {e}")
 
-
+# === State Management ===
 def load_processed():
     if not os.path.exists(STATE_FILE):
         return set()
     with open(STATE_FILE, "r") as f:
         return set(line.strip() for line in f.readlines())
 
-
 def save_processed(folder_name):
     with open(STATE_FILE, "a") as f:
         f.write(folder_name + "\n")
 
-
+# === Main Trigger Function ===
 def main():
     log("🚀 Script triggered.")
     processed = load_processed()
-    log(f"✅ {len(processed)} folders already processed.")
     show_processed()
 
-    folders = ["Roll_000391"]
+    folders = ["Roll_000391"]  # Replace with dynamic folder lookup later
 
     for name in folders:
         log(f"🔍 Checking folder: {name}")
         if name in processed:
-            log(f"⏩ Skipping already processed folder: {name}")
+            log(f"⏩ Already processed: {name}")
             continue
 
-        twin_sticker = name.strip().split("_")[-1]
-        log(f"🔎 Looking up twin sticker: {twin_sticker}")
+        twin_sticker = name.split("_")[-1]
         record = find_airtable_record(twin_sticker)
         if not record:
-            log(f"❌ No Airtable match for sticker {twin_sticker}")
+            log(f"❌ No Airtable match for {twin_sticker}")
             continue
 
         if record['fields'].get('Email Sent') == True:
-            log(f"⛔ Email already sent for sticker {twin_sticker}, skipping.")
+            log(f"⛔ Already emailed: {twin_sticker}")
             continue
 
         email = record['fields'].get('Client Email')
         if not email:
-            log(f"❌ No email found for record with sticker {twin_sticker}")
+            log(f"❌ No email in Airtable record")
             continue
 
         password = generate_password()
-        update_airtable_record(record['id'], {
-            "Password": password
-        })
+        update_airtable_record(record['id'], {"Password": password})
 
-        gallery_link = f"https://yourdomain.com/roll/{twin_sticker}"
+        gallery_link = f"https://gilplaquet.com/roll/{twin_sticker}"
         subject = f"Your Photos Are Ready - Roll {twin_sticker}"
         body = f"""
 Hi there,
@@ -187,18 +191,12 @@ Gil
 Gil Plaquet Photography
 www.gilplaquet.com
         """
-        log(f"📧 Preparing to send email to {email} for roll {twin_sticker}")
         send_email(email, subject, body)
-        update_airtable_record(record['id'], {
-            "Email Sent": True
-        })
+        update_airtable_record(record['id'], {"Email Sent": True})
         save_processed(name)
-        log(f"✅ Link sent to {email} for folder '{name}'")
+        log(f"✅ Processed and emailed: {twin_sticker}")
 
-
-# === Flask app ===
-app = Flask(__name__)
-
+# === Flask App ===
 @app.route('/')
 def index():
     return "✅ Render is online."
@@ -206,17 +204,49 @@ def index():
 @app.route('/trigger')
 def trigger():
     token = request.args.get("token")
-    log(f"🔐 Trigger received. Token = {token}")
     if token != TRIGGER_TOKEN:
-        log("❌ Unauthorized trigger attempt")
         return "❌ Unauthorized", 403
     try:
         main()
-        log("✅ Main function completed.")
         return "✅ Script ran successfully."
     except Exception as e:
-        log(f"❌ Script error: {e}")
         return f"❌ Script error: {e}"
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+@app.route('/roll/<sticker>', methods=['GET', 'POST'])
+def gallery(sticker):
+    record = find_airtable_record(sticker)
+    if not record:
+        return "Roll not found.", 404
+
+    expected_password = record['fields'].get("Password")
+    if request.method == "POST":
+        input_password = request.form.get("password")
+        if input_password != expected_password:
+            return "Incorrect password.", 403
+
+        filenames = [f"rolls/{sticker}/photo_{i:02}.jpg" for i in range(1, 7)]
+        image_urls = [generate_signed_url(f) for f in filenames]
+        zip_url = generate_signed_url(f"rolls/{sticker}/Roll_{sticker}.zip")
+
+        return render_template_string("""
+        <h2>Gallery for Roll {{ sticker }}</h2>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+            {% for url in image_urls %}
+                <img src="{{ url }}" style="width: 200px; height: auto;">
+            {% endfor %}
+        </div>
+        <p><a href="{{ zip_url }}">Download All (ZIP)</a></p>
+        <hr>
+        <p><strong>Print Order Form (coming soon)</strong></p>
+        """, sticker=sticker, image_urls=image_urls, zip_url=zip_url)
+
+    return render_template_string("""
+    <h2>Enter password to access Roll {{ sticker }}</h2>
+    <form method="POST">
+        <input type="password" name="password">
+        <button type="submit">Submit</button>
+    </form>
+    """, sticker=sticker)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
