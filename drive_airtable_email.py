@@ -108,7 +108,7 @@ def send_email(to_address, subject, body):
     body_html = body.replace('\n', '<br>')
     html_body = f"""
     <div style='text-align: center;'>
-      <img src='https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png' alt='Logo' style='width: 250px; margin-bottom: 20px;'>
+      <img src='https://yourdomain.com/logo.png' alt='Logo' style='width: 150px; margin-bottom: 20px;'>
     </div>
     <div style='font-family: sans-serif;'>{body_html}</div>
     """
@@ -140,13 +140,28 @@ def save_processed(folder_name):
     with open(STATE_FILE, "a") as f:
         f.write(folder_name + "\n")
 
+# === Folder Listing ===
+def list_roll_folders(prefix="rolls/"):
+    init_b2()
+    bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
+    roll_names = set()
+
+    for file_version, _ in bucket.ls(prefix, show_versions=False):
+        parts = file_version.file_name.split("/")
+        if len(parts) >= 2:
+            roll_folder = parts[1]
+            if roll_folder.startswith("Roll_"):
+                roll_names.add(roll_folder)
+
+    return sorted(roll_names)
+
 # === Main Trigger Function ===
 def main():
     log("🚀 Script triggered.")
     processed = load_processed()
     show_processed()
 
-    folders = ["Roll_000391"]  # Replace with dynamic folder lookup later
+    folders = list_roll_folders()
 
     for name in folders:
         log(f"🔍 Checking folder: {name}")
@@ -173,11 +188,11 @@ def main():
         update_airtable_record(record['id'], {"Password": password})
 
         gallery_link = f"https://gilplaquet.com/roll/{twin_sticker}"
-        subject = f"Your Photos Are Ready - Roll {twin_sticker}"
+        subject = f"Your Scans Are Ready - Roll {twin_sticker}"
         body = f"""
 Hi there,
 
-Good news! One of the rolls you sent in for development just got scanned.
+Good news! (One of) The roll(s) you sent in for development just got scanned.
 You can view and download your scans at the link below:
 
 {gallery_link}
