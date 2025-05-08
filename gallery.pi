@@ -1,0 +1,77 @@
+from flask import Flask, request, render_template_string, redirect
+import os
+import time
+import hmac
+import hashlib
+import base64
+import requests
+
+app = Flask(__name__)
+
+# Bunny config
+BUNNY_STORAGE_ZONE = os.getenv("BUNNY_STORAGE_ZONE")
+BUNNY_BASE_URL = os.getenv("BUNNY_BASE_URL")  # e.g. https://film-lab.b-cdn.net
+BUNNY_TOKEN_KEY = os.getenv("BUNNY_TOKEN_KEY")
+
+# Airtable config
+AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
+AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID")
+AIRTABLE_TABLE_NAME = os.getenv("AIRTABLE_TABLE_NAME")
+
+def generate_signed_url(file_path, expires_in=86400):
+    expires = int(time.time()) + expires_in
+    path = f"/{BUNNY_STORAGE_ZONE}/{file_path}"
+    string_to_sign = f"{path}{expires}"
+    token = base64.urlsafe_b64encode(hmac.new(
+        BUNNY_TOKEN_KEY.encode(), string_to_sign.encode(), hashlib.sha256
+    ).digest()).decode().rstrip("=")
+    return f"{BUNNY_BASE_URL}/{file_path}?token={token}&expires={expires}"
+
+def get_airtable_record(sticker):
+    url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
+    headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
+    params = {"filterByFormula": f"{{Twin Sticker}}='{sticker}'"}
+    response = requests.get(url, headers=headers, params=params)
+    records = response.json().get("records", [])
+    return records[0] if records else None
+
+@app.route("/roll/<sticker>", methods=["GET", "POST"])
+def gallery(sticker):
+    record = get_airtable_record(sticker)
+    if not record:
+        return "Roll not found.", 404
+
+    expected_password = record['fields'].get("Password")
+    if request.method == "POST":
+        input_password = request.form.get("password")
+        if input_password != expected_password:
+            return "Incorrect password.", 403
+
+        # Assume default files
+        filenames = [f"rolls/{sticker}/photo_{i:02}.jpg" for i in range(1, 7)]
+        image_urls = [generate_signed_url(f) for f in filenames]
+        zip_url = generate_signed_url(f"rolls/{sticker}/Roll_{sticker}.zip")
+
+        return render_template_string("""
+        <h2>Gallery for Roll {{ sticker }}</h2>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+            {% for url in image_urls %}
+                <img src="{{ url }}" style="width: 200px; height: auto;">
+            {% endfor %}
+        </div>
+        <p><a href="{{ zip_url }}">Download All (ZIP)</a></p>
+        <hr>
+        <p><strong>Print Order Form (coming soon)</strong></p>
+        """, sticker=sticker, image_urls=image_urls, zip_url=zip_url)
+
+    # GET request — show password prompt
+    return render_template_string("""
+    <h2>Enter password to access Roll {{ sticker }}</h2>
+    <form method="POST">
+        <input type="password" name="password">
+        <button type="submit">Submit</button>
+    </form>
+    """, sticker=sticker)
+
+if __name__ == "__main__":
+    app.run(debug=True)
