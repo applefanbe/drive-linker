@@ -146,13 +146,16 @@ def list_roll_folders(prefix="rolls/"):
     bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
     roll_names = set()
 
+    log(f"📁 Scanning B2 for folders under prefix '{prefix}'")
     for file_version, _ in bucket.ls(prefix, show_versions=False):
+        log(f"🔎 Found file: {file_version.file_name}")
         parts = file_version.file_name.split("/")
         if len(parts) >= 2:
             roll_folder = parts[1]
             if roll_folder.startswith("Roll_"):
                 roll_names.add(roll_folder)
 
+    log(f"📁 Found roll folders: {sorted(roll_names)}")
     return sorted(roll_names)
 
 # === Main Trigger Function ===
@@ -188,11 +191,11 @@ def main():
         update_airtable_record(record['id'], {"Password": password})
 
         gallery_link = f"https://gilplaquet.com/roll/{twin_sticker}"
-        subject = f"Your Scans Are Ready - Roll {twin_sticker}"
+        subject = f"Your Photos Are Ready - Roll {twin_sticker}"
         body = f"""
 Hi there,
 
-Good news! (One of) The roll(s) you sent in for development just got scanned.
+Good news! One of the rolls you sent in for development just got scanned.
 You can view and download your scans at the link below:
 
 {gallery_link}
@@ -210,6 +213,17 @@ www.gilplaquet.com
         update_airtable_record(record['id'], {"Email Sent": True})
         save_processed(name)
         log(f"✅ Processed and emailed: {twin_sticker}")
+
+# === Test URL Route ===
+@app.route('/test-url')
+def test_url():
+    # Change this to a real path in your B2 bucket to test
+    test_file = "rolls/000391/photo_01.jpg"
+    try:
+        url = generate_signed_url(test_file)
+        return f"<p>Signed URL for test file:</p><a href='{url}' target='_blank'>{url}</a>"
+    except Exception as e:
+        return f"❌ Error generating test URL: {e}"
 
 # === Flask App ===
 @app.route('/')
