@@ -95,15 +95,7 @@ def send_email(to_address, subject, body):
     <div style='font-family: sans-serif;'>{body_html}</div>
     """
 
-    msg.add_alternative(f"<html><body>{html_body}<script>
-  lightGallery(document.getElementById('lightgallery'), {
-    plugins: [lgZoom, lgThumbnail, lgAutoplay, lgFullscreen, lgKeyboard],
-    speed: 400,
-    selector: 'a',
-    preload: 2
-  });
-</script>
-</body></html>", subtype='html')
+    msg.add_alternative(f"<html><body>{html_body}</body></html>", subtype='html')
 
     try:
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
@@ -318,6 +310,14 @@ def gallery(sticker):
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.1/plugins/autoplay/lg-autoplay.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.1/plugins/fullscreen/lg-fullscreen.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.1/plugins/keyboard/lg-keyboard.min.js"></script>
+<script>
+  lightGallery(document.getElementById('lightgallery'), {
+    plugins: [lgZoom, lgThumbnail, lgAutoplay, lgFullscreen, lgKeyboard],
+    speed: 400,
+    selector: 'a',
+    preload: 2
+  });
+</script>
 <style>
   .gallery a {
     position: relative;
