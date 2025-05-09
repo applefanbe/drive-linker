@@ -30,10 +30,8 @@ B2_BUCKET_NAME = os.getenv("B2_BUCKET_NAME")
 B2_DOWNLOAD_URL = os.getenv("B2_DOWNLOAD_URL")
 
 b2_api = None
-
 app = Flask(__name__)
 
-# === B2 Signed URL Generation ===
 def init_b2():
     global b2_api
     if b2_api is None:
@@ -49,20 +47,18 @@ def generate_signed_url(file_path, expires_in=3600):
     auth_token = bucket.get_download_authorization(file_path, expires_in)
     return f"{download_url}?Authorization={auth_token}"
 
-# === Logging ===
 def log(message):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     sys.stdout.write(f"[{timestamp}] {message}\n")
     sys.stdout.flush()
 
-# === Airtable Utilities ===
 def show_processed():
     if not os.path.exists(STATE_FILE):
-        log("📄 No processed folders file found.")
+        log("\ud83d\udcc4 No processed folders file found.")
         return
     with open(STATE_FILE, "r") as f:
         lines = f.readlines()
-        log(f"📄 Processed folders ({len(lines)}): {', '.join([l.strip() for l in lines])}")
+        log(f"\ud83d\udcc4 Processed folders ({len(lines)}): {', '.join([l.strip() for l in lines])}")
 
 def update_airtable_record(record_id, fields):
     url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}/{record_id}"
@@ -73,9 +69,9 @@ def update_airtable_record(record_id, fields):
     data = {"fields": fields}
     response = requests.patch(url, headers=headers, json=data)
     if response.status_code == 200:
-        log(f"✅ Airtable updated: {fields}")
+        log(f"\u2705 Airtable updated: {fields}")
     else:
-        log(f"❌ Failed to update Airtable record {record_id}: {response.text}")
+        log(f"\u274c Failed to update Airtable record {record_id}: {response.text}")
 
 def find_airtable_record(twin_sticker):
     url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
@@ -86,18 +82,17 @@ def find_airtable_record(twin_sticker):
     resp = requests.get(url, headers=headers, params=params)
     log(f"Airtable response: {resp.text}")
     if resp.status_code != 200:
-        log(f"❌ Airtable API error: {resp.status_code}")
+        log(f"\u274c Airtable API error: {resp.status_code}")
         return None
     records = resp.json().get("records", [])
     return records[0] if records else None
 
-# === Email Sending ===
 def generate_password(length=8):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
 def send_email(to_address, subject, body):
     bcc_address = "filmlab@gilplaquet.com"
-    log("✉️ Composing message...")
+    log("\u2709\ufe0f Composing message...")
     msg = EmailMessage()
     msg["From"] = "Gil Plaquet FilmLab <filmlab@gilplaquet.com>"
     msg["To"] = to_address
@@ -108,7 +103,7 @@ def send_email(to_address, subject, body):
     body_html = body.replace('\n', '<br>')
     html_body = f"""
     <div style='text-align: center;'>
-      <img src='https://yourdomain.com/logo.png' alt='Logo' style='width: 150px; margin-bottom: 20px;'>
+      <img src='https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png' alt='Logo' style='width: 250px; margin-bottom: 20px;'>
     </div>
     <div style='font-family: sans-serif;'>{body_html}</div>
     """
@@ -120,16 +115,15 @@ def send_email(to_address, subject, body):
     """, subtype='html')
 
     try:
-        log(f"📤 Sending email to {to_address} via {SMTP_SERVER}...")
+        log(f"\ud83d\udce4 Sending email to {to_address} via {SMTP_SERVER}...")
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls()
             server.login(SMTP_USER, SMTP_PASS)
             server.send_message(msg)
-        log("✅ Email sent successfully.")
+        log("\u2705 Email sent successfully.")
     except Exception as e:
-        log(f"❌ Email failed to send: {e}")
+        log(f"\u274c Email failed to send: {e}")
 
-# === State Management ===
 def load_processed():
     if not os.path.exists(STATE_FILE):
         return set()
@@ -140,61 +134,59 @@ def save_processed(folder_name):
     with open(STATE_FILE, "a") as f:
         f.write(folder_name + "\n")
 
-# === Folder Listing ===
 def list_roll_folders(prefix="rolls/"):
     init_b2()
     bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
     roll_names = set()
 
-    log(f"📁 Scanning B2 for folders under prefix '{prefix}'")
+    log(f"\ud83d\udcc1 Scanning B2 for folders under prefix '{prefix}'")
     for file_version, _ in bucket.ls(prefix):
-        log(f"🔎 Found file: {file_version.file_name}")
+        log(f"\ud83d\udd0e Found file: {file_version.file_name}")
         parts = file_version.file_name.split("/")
         if len(parts) >= 2:
             roll_folder = parts[1]
             roll_names.add(roll_folder)
 
-    log(f"📁 Found roll folders: {sorted(roll_names)}")
+    log(f"\ud83d\udcc1 Found roll folders: {sorted(roll_names)}")
     return sorted(roll_names)
 
-# === Main Trigger Function ===
 def main():
-    log("🚀 Script triggered.")
+    log("\ud83d\ude80 Script triggered.")
     processed = load_processed()
     show_processed()
 
     folders = list_roll_folders()
 
     for name in folders:
-        log(f"🔍 Checking folder: {name}")
+        log(f"\ud83d\udd0d Checking folder: {name}")
         if name in processed:
-            log(f"⏩ Already processed: {name}")
+            log(f"\u23e9 Already processed: {name}")
             continue
 
         twin_sticker = name.split("_")[-1].lstrip("0")
         record = find_airtable_record(twin_sticker)
         if not record:
-            log(f"❌ No Airtable match for {twin_sticker}")
+            log(f"\u274c No Airtable match for {twin_sticker}")
             continue
 
         if record['fields'].get('Email Sent') == True:
-            log(f"⛔ Already emailed: {twin_sticker}")
+            log(f"\u26d4 Already emailed: {twin_sticker}")
             continue
 
         email = record['fields'].get('Client Email')
         if not email:
-            log(f"❌ No email in Airtable record")
+            log(f"\u274c No email in Airtable record")
             continue
 
         password = generate_password()
         update_airtable_record(record['id'], {"Password": password})
 
-        gallery_link = f"https://gilplaquet.com/roll/{twin_sticker}"
-        subject = f"Your Photos Are Ready - Roll {twin_sticker}"
+        gallery_link = f"https://scans.gilplaquet.com/roll/{twin_sticker}"
+        subject = f"Your Scans Are Ready - Roll {twin_sticker}"
         body = f"""
 Hi there,
 
-Good news! One of the rolls you sent in for development just got scanned.
+Good news! (One of) The roll(s) you sent in for development just got scanned.
 You can view and download your scans at the link below:
 
 {gallery_link}
@@ -203,42 +195,28 @@ To access your gallery, use the password: {password}
 
 Thanks for sending in your film!
 
-Gil
-
-Gil Plaquet Photography
+Gil Plaquet
 www.gilplaquet.com
         """
         send_email(email, subject, body)
         update_airtable_record(record['id'], {"Email Sent": True})
         save_processed(name)
-        log(f"✅ Processed and emailed: {twin_sticker}")
+        log(f"\u2705 Processed and emailed: {twin_sticker}")
 
-# === Test URL Route ===
-@app.route('/test-url')
-def test_url():
-    # Change this to a real path in your B2 bucket to test
-    test_file = "rolls/000391/photo_01.jpg"
-    try:
-        url = generate_signed_url(test_file)
-        return f"<p>Signed URL for test file:</p><a href='{url}' target='_blank'>{url}</a>"
-    except Exception as e:
-        return f"❌ Error generating test URL: {e}"
-
-# === Flask App ===
 @app.route('/')
 def index():
-    return "✅ Render is online."
+    return "\u2705 Render is online."
 
 @app.route('/trigger')
 def trigger():
     token = request.args.get("token")
     if token != TRIGGER_TOKEN:
-        return "❌ Unauthorized", 403
+        return "\u274c Unauthorized", 403
     try:
         main()
-        return "✅ Script ran successfully."
+        return "\u2705 Script ran successfully."
     except Exception as e:
-        return f"❌ Script error: {e}"
+        return f"\u274c Script error: {e}"
 
 @app.route('/roll/<sticker>', methods=['GET', 'POST'])
 def gallery(sticker):
@@ -252,9 +230,31 @@ def gallery(sticker):
         if input_password != expected_password:
             return "Incorrect password.", 403
 
-        filenames = [f"rolls/{sticker}/photo_{i:02}.jpg" for i in range(1, 7)]
-        image_urls = [generate_signed_url(f) for f in filenames]
-        zip_url = generate_signed_url(f"rolls/{sticker}/Roll_{sticker}.zip")
+        def find_roll_folder_by_sticker(sticker):
+            init_b2()
+            bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
+            roll_folders = set()
+            for file_version, _ in bucket.ls("rolls/"):
+                parts = file_version.file_name.split("/")
+                if len(parts) >= 2:
+                    folder = parts[1]
+                    if folder.endswith(sticker.zfill(6)):
+                        roll_folders.add(folder)
+            return sorted(roll_folders)[0] if roll_folders else None
+
+        folder = find_roll_folder_by_sticker(sticker)
+        if not folder:
+            return f"No folder found for sticker {sticker}", 404
+
+        prefix = f"rolls/{folder}/"
+        bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
+        image_files = []
+        for file_version, _ in bucket.ls(prefix):
+            if file_version.file_name.lower().endswith((".jpg", ".jpeg", ".png")):
+                image_files.append(file_version.file_name)
+
+        image_urls = [generate_signed_url(f) for f in image_files]
+        zip_url = generate_signed_url(f"{prefix}Roll_{sticker}.zip")
 
         return render_template_string("""
         <h2>Gallery for Roll {{ sticker }}</h2>
