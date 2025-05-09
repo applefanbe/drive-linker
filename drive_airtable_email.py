@@ -39,12 +39,8 @@ def init_b2():
         b2_api.authorize_account("production", B2_KEY_ID, B2_APP_KEY)
 
 def generate_signed_url(file_path, expires_in=604800):
-    init_b2()
-    bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
     file_name = quote(file_path)
-    download_url = f"{B2_DOWNLOAD_URL}/{file_name}"
-    auth_token = bucket.get_download_authorization(file_path, expires_in)
-    return f"{download_url}?Authorization={auth_token}"
+    return f"https://f003.backblazeb2.com/file/film-lab-rolls/{file_name}"
 
 def log(message):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
