@@ -6,8 +6,6 @@ import sys
 import random
 import string
 import time
-import hmac
-import hashlib
 from datetime import datetime
 from email.message import EmailMessage
 from flask import Flask, request, render_template_string
@@ -32,6 +30,7 @@ B2_DOWNLOAD_URL = os.getenv("B2_DOWNLOAD_URL")
 b2_api = None
 app = Flask(__name__)
 
+# === B2 Utilities ===
 def init_b2():
     global b2_api
     if b2_api is None:
@@ -49,50 +48,39 @@ def generate_signed_url(file_path, expires_in=3600):
 
 def log(message):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    sys.stdout.write(f"[{timestamp}] {message}\n")
-    sys.stdout.flush()
+    print(f"[{timestamp}] {message}", flush=True)
 
-def show_processed():
-    if not os.path.exists(STATE_FILE):
-        log("\ud83d\udcc4 No processed folders file found.")
-        return
-    with open(STATE_FILE, "r") as f:
-        lines = f.readlines()
-        log(f"\ud83d\udcc4 Processed folders ({len(lines)}): {', '.join([l.strip() for l in lines])}")
-
+# === Airtable ===
 def update_airtable_record(record_id, fields):
     url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}/{record_id}"
     headers = {
         "Authorization": f"Bearer {AIRTABLE_API_KEY}",
         "Content-Type": "application/json"
     }
-    data = {"fields": fields}
-    response = requests.patch(url, headers=headers, json=data)
+    response = requests.patch(url, headers=headers, json={"fields": fields})
     if response.status_code == 200:
-        log(f"\u2705 Airtable updated: {fields}")
+        log(f"✅ Airtable updated: {fields}")
     else:
-        log(f"\u274c Failed to update Airtable record {record_id}: {response.text}")
+        log(f"❌ Failed to update Airtable record {record_id}: {response.text}")
 
 def find_airtable_record(twin_sticker):
     url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
     headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
     formula = f"{{Twin Sticker}}='{twin_sticker}'"
-    params = {"filterByFormula": formula}
-    log(f"Airtable query: {formula}")
-    resp = requests.get(url, headers=headers, params=params)
-    log(f"Airtable response: {resp.text}")
-    if resp.status_code != 200:
-        log(f"\u274c Airtable API error: {resp.status_code}")
+    response = requests.get(url, headers=headers, params={"filterByFormula": formula})
+    if response.status_code != 200:
+        log(f"❌ Airtable API error: {response.status_code}")
         return None
-    records = resp.json().get("records", [])
+    records = response.json().get("records", [])
     return records[0] if records else None
 
+# === Email ===
 def generate_password(length=8):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
 def send_email(to_address, subject, body):
     bcc_address = "filmlab@gilplaquet.com"
-    log("\u2709\ufe0f Composing message...")
+    log("✉️ Composing message...")
     msg = EmailMessage()
     msg["From"] = "Gil Plaquet FilmLab <filmlab@gilplaquet.com>"
     msg["To"] = to_address
@@ -108,27 +96,20 @@ def send_email(to_address, subject, body):
     <div style='font-family: sans-serif;'>{body_html}</div>
     """
 
-    msg.add_alternative(f"""
-    <html>
-        <body>{html_body}</body>
-    </html>
-    """, subtype='html')
+    msg.add_alternative(f"<html><body>{html_body}</body></html>", subtype='html')
 
     try:
-        log(f"\ud83d\udce4 Sending email to {to_address} via {SMTP_SERVER}...")
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls()
             server.login(SMTP_USER, SMTP_PASS)
             server.send_message(msg)
-        log("\u2705 Email sent successfully.")
+        log("✅ Email sent successfully.")
     except Exception as e:
-        log(f"\u274c Email failed to send: {e}")
+        log(f"❌ Email failed: {e}")
 
+# === Folder Utilities ===
 def load_processed():
-    if not os.path.exists(STATE_FILE):
-        return set()
-    with open(STATE_FILE, "r") as f:
-        return set(line.strip() for line in f.readlines())
+    return set(open(STATE_FILE).read().splitlines()) if os.path.exists(STATE_FILE) else set()
 
 def save_processed(folder_name):
     with open(STATE_FILE, "a") as f:
@@ -137,45 +118,37 @@ def save_processed(folder_name):
 def list_roll_folders(prefix="rolls/"):
     init_b2()
     bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
-    roll_names = set()
-
-    log(f"\ud83d\udcc1 Scanning B2 for folders under prefix '{prefix}'")
+    folders = set()
     for file_version, _ in bucket.ls(prefix):
-        log(f"\ud83d\udd0e Found file: {file_version.file_name}")
         parts = file_version.file_name.split("/")
         if len(parts) >= 2:
-            roll_folder = parts[1]
-            roll_names.add(roll_folder)
+            folders.add(parts[1])
+    return sorted(folders)
 
-    log(f"\ud83d\udcc1 Found roll folders: {sorted(roll_names)}")
-    return sorted(roll_names)
-
+# === Main ===
 def main():
-    log("\ud83d\ude80 Script triggered.")
+    log("🚀 Script triggered.")
     processed = load_processed()
-    show_processed()
-
     folders = list_roll_folders()
 
-    for name in folders:
-        log(f"\ud83d\udd0d Checking folder: {name}")
-        if name in processed:
-            log(f"\u23e9 Already processed: {name}")
+    for folder in folders:
+        if folder in processed:
+            log(f"⏭️ Already processed: {folder}")
             continue
 
-        twin_sticker = name.split("_")[-1].lstrip("0")
+        twin_sticker = folder.split("_")[-1].lstrip("0")
         record = find_airtable_record(twin_sticker)
         if not record:
-            log(f"\u274c No Airtable match for {twin_sticker}")
+            log(f"❌ No Airtable match for {twin_sticker}")
             continue
 
-        if record['fields'].get('Email Sent') == True:
-            log(f"\u26d4 Already emailed: {twin_sticker}")
+        if record['fields'].get('Email Sent'):
+            log(f"⏭️ Already emailed: {twin_sticker}")
             continue
 
         email = record['fields'].get('Client Email')
         if not email:
-            log(f"\u274c No email in Airtable record")
+            log(f"❌ Missing Client Email in Airtable record")
             continue
 
         password = generate_password()
@@ -198,25 +171,26 @@ Thanks for sending in your film!
 Gil Plaquet
 www.gilplaquet.com
         """
+
         send_email(email, subject, body)
         update_airtable_record(record['id'], {"Email Sent": True})
-        save_processed(name)
-        log(f"\u2705 Processed and emailed: {twin_sticker}")
+        save_processed(folder)
+        log(f"✅ Processed and emailed: {twin_sticker}")
 
+# === Flask Routes ===
 @app.route('/')
 def index():
-    return "\u2705 Render is online."
+    return "🟢 Render is online."
 
 @app.route('/trigger')
 def trigger():
-    token = request.args.get("token")
-    if token != TRIGGER_TOKEN:
-        return "\u274c Unauthorized", 403
+    if request.args.get("token") != TRIGGER_TOKEN:
+        return "❌ Unauthorized", 403
     try:
         main()
-        return "\u2705 Script ran successfully."
+        return "✅ Script ran successfully."
     except Exception as e:
-        return f"\u274c Script error: {e}"
+        return f"❌ Script failed: {e}"
 
 @app.route('/roll/<sticker>', methods=['GET', 'POST'])
 def gallery(sticker):
@@ -226,33 +200,23 @@ def gallery(sticker):
 
     expected_password = record['fields'].get("Password")
     if request.method == "POST":
-        input_password = request.form.get("password")
-        if input_password != expected_password:
+        if request.form.get("password") != expected_password:
             return "Incorrect password.", 403
 
-        def find_roll_folder_by_sticker(sticker):
-            init_b2()
-            bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
-            roll_folders = set()
-            for file_version, _ in bucket.ls("rolls/"):
-                parts = file_version.file_name.split("/")
-                if len(parts) >= 2:
-                    folder = parts[1]
-                    if folder.endswith(sticker.zfill(6)):
-                        roll_folders.add(folder)
-            return sorted(roll_folders)[0] if roll_folders else None
+        def find_folder_by_suffix(suffix):
+            folders = list_roll_folders()
+            for name in folders:
+                if name.endswith(suffix.zfill(6)):
+                    return name
+            return None
 
-        folder = find_roll_folder_by_sticker(sticker)
+        folder = find_folder_by_suffix(sticker)
         if not folder:
-            return f"No folder found for sticker {sticker}", 404
+            return f"No folder found for sticker {sticker}.", 404
 
         prefix = f"rolls/{folder}/"
         bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
-        image_files = []
-        for file_version, _ in bucket.ls(prefix):
-            if file_version.file_name.lower().endswith((".jpg", ".jpeg", ".png")):
-                image_files.append(file_version.file_name)
-
+        image_files = [f.file_name for f, _ in bucket.ls(prefix) if f.file_name.lower().endswith(('.jpg', '.jpeg', '.png'))]
         image_urls = [generate_signed_url(f) for f in image_files]
         zip_url = generate_signed_url(f"{prefix}Roll_{sticker}.zip")
 
