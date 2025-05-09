@@ -152,8 +152,7 @@ def list_roll_folders(prefix="rolls/"):
         parts = file_version.file_name.split("/")
         if len(parts) >= 2:
             roll_folder = parts[1]
-            if roll_folder.startswith("Roll_"):
-                roll_names.add(roll_folder)
+            roll_names.add(roll_folder)
 
     log(f"📁 Found roll folders: {sorted(roll_names)}")
     return sorted(roll_names)
@@ -172,7 +171,7 @@ def main():
             log(f"⏩ Already processed: {name}")
             continue
 
-        twin_sticker = name.split("_")[-1]
+        twin_sticker = name.split("_")[-1].lstrip("0")
         record = find_airtable_record(twin_sticker)
         if not record:
             log(f"❌ No Airtable match for {twin_sticker}")
