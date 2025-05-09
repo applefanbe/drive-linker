@@ -9,7 +9,8 @@ import time
 from datetime import datetime
 from email.message import EmailMessage
 from flask import Flask, request, render_template_string
-from b2sdk.v2 import InMemoryAccountInfo, B2Api
+import boto3
+from botocore.client import Config
 from urllib.parse import quote
 
 # === Configuration ===
@@ -22,29 +23,27 @@ SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASS = os.getenv("SMTP_PASS")
 TRIGGER_TOKEN = os.getenv("TRIGGER_TOKEN")
 STATE_FILE = "processed_folders.txt"
-B2_KEY_ID = os.getenv("B2_KEY_ID")
-B2_APP_KEY = os.getenv("B2_APP_KEY")
+S3_ACCESS_KEY_ID = os.getenv("S3_ACCESS_KEY_ID")
+S3_SECRET_ACCESS_KEY = os.getenv("S3_SECRET_ACCESS_KEY")
+S3_ENDPOINT_URL = os.getenv("S3_ENDPOINT_URL")
 B2_BUCKET_NAME = os.getenv("B2_BUCKET_NAME")
-B2_DOWNLOAD_URL = os.getenv("B2_DOWNLOAD_URL")
 
-b2_api = None
 app = Flask(__name__)
 
-# === B2 Utilities ===
-def init_b2():
-    global b2_api
-    if b2_api is None:
-        info = InMemoryAccountInfo()
-        b2_api = B2Api(info)
-        b2_api.authorize_account("production", B2_KEY_ID, B2_APP_KEY)
-
+# === S3-Compatible Signed URL ===
 def generate_signed_url(file_path, expires_in=604800):
-    init_b2()
-    bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
-    file_name = quote(file_path)
-    download_url = f"{B2_DOWNLOAD_URL}/{file_name}"
-    auth_token = bucket.get_download_authorization(file_path, expires_in)
-    return f"{download_url}?Authorization={auth_token}"
+    s3 = boto3.client(
+        's3',
+        aws_access_key_id=S3_ACCESS_KEY_ID,
+        aws_secret_access_key=S3_SECRET_ACCESS_KEY,
+        endpoint_url=S3_ENDPOINT_URL,
+        config=Config(signature_version='s3v4')
+    )
+    return s3.generate_presigned_url(
+        'get_object',
+        Params={'Bucket': B2_BUCKET_NAME, 'Key': file_path},
+        ExpiresIn=expires_in
+    )
 
 def log(message):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -116,11 +115,17 @@ def save_processed(folder_name):
         f.write(folder_name + "\n")
 
 def list_roll_folders(prefix="rolls/"):
-    init_b2()
-    bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
+    s3 = boto3.client(
+        's3',
+        aws_access_key_id=S3_ACCESS_KEY_ID,
+        aws_secret_access_key=S3_SECRET_ACCESS_KEY,
+        endpoint_url=S3_ENDPOINT_URL,
+        config=Config(signature_version='s3v4')
+    )
+    result = s3.list_objects_v2(Bucket=B2_BUCKET_NAME, Prefix=prefix)
     folders = set()
-    for file_version, _ in bucket.ls(prefix):
-        parts = file_version.file_name.split("/")
+    for obj in result.get("Contents", []):
+        parts = obj["Key"].split("/")
         if len(parts) >= 2:
             folders.add(parts[1])
     return sorted(folders)
@@ -217,8 +222,15 @@ def gallery(sticker):
             return f"No folder found for sticker {sticker}.", 404
 
         prefix = f"rolls/{folder}/"
-        bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
-        image_files = [f.file_name for f, _ in bucket.ls(prefix) if f.file_name.lower().endswith(('.jpg', '.jpeg', '.png'))]
+        s3 = boto3.client(
+            's3',
+            aws_access_key_id=S3_ACCESS_KEY_ID,
+            aws_secret_access_key=S3_SECRET_ACCESS_KEY,
+            endpoint_url=S3_ENDPOINT_URL,
+            config=Config(signature_version='s3v4')
+        )
+        result = s3.list_objects_v2(Bucket=B2_BUCKET_NAME, Prefix=prefix)
+        image_files = [obj["Key"] for obj in result.get("Contents", []) if obj["Key"].lower().endswith(('.jpg', '.jpeg', '.png'))]
         image_urls = [generate_signed_url(f) for f in image_files]
         zip_url = generate_signed_url(f"{prefix}Roll_{sticker}.zip")
 
@@ -226,7 +238,9 @@ def gallery(sticker):
         <h2>Gallery for Roll {{ sticker }}</h2>
         <div style="display: flex; flex-wrap: wrap; gap: 10px;">
             {% for url in image_urls %}
-                <img src="{{ url }}" style="width: 200px; height: auto;">
+                <a href="{{ url }}" target="_blank">
+                    <img src="{{ url }}" style="width: 200px; height: auto;">
+                </a>
             {% endfor %}
         </div>
         <p><a href="{{ zip_url }}">Download All (ZIP)</a></p>
