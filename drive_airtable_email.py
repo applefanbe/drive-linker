@@ -234,19 +234,99 @@ def gallery(sticker):
         image_urls = [generate_signed_url(f) for f in image_files]
         zip_url = generate_signed_url(f"{prefix}Roll_{sticker}.zip")
 
+        from datetime import datetime
         return render_template_string("""
-        <h2>Gallery for Roll {{ sticker }}</h2>
-        <div style="display: flex; flex-wrap: wrap; gap: 10px;">
-            {% for url in image_urls %}
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+          <title>Roll {{ sticker }} – Gil Plaquet FilmLab</title>
+          <style>
+            body {
+              font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+              background-color: #ffffff;
+              color: #333333;
+              margin: 0;
+              padding: 0;
+            }
+            .container {
+              max-width: 960px;
+              margin: 0 auto;
+              padding: 40px 20px;
+            }
+            h1 {
+              font-size: 2em;
+              margin-bottom: 0.5em;
+              text-align: center;
+            }
+            .gallery {
+              display: grid;
+              grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+              gap: 20px;
+              margin-top: 30px;
+            }
+            .gallery a {
+              display: block;
+              border-radius: 8px;
+              overflow: hidden;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+              transition: transform 0.2s ease;
+            }
+            .gallery a:hover {
+              transform: scale(1.02);
+            }
+            .gallery img {
+              width: 100%;
+              height: auto;
+              display: block;
+            }
+            .download {
+              display: inline-block;
+              margin-top: 40px;
+              padding: 12px 24px;
+              border: 2px solid #333333;
+              border-radius: 4px;
+              text-decoration: none;
+              color: #333333;
+              font-weight: bold;
+              transition: background-color 0.3s ease, color 0.3s ease;
+            }
+            .download:hover {
+              background-color: #333333;
+              color: #ffffff;
+            }
+            footer {
+              margin-top: 60px;
+              text-align: center;
+              font-size: 0.9em;
+              color: #888888;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+    <div style="text-align: center; margin-bottom: 20px;">
+      <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; height: auto;">
+    </div>
+            <h1>Roll {{ sticker }}</h1>
+            <div class="gallery">
+              {% for url in image_urls %}
                 <a href="{{ url }}" target="_blank">
-                    <img src="{{ url }}" style="width: 200px; height: auto;">
+                  <img src="{{ url }}" alt="Scan {{ loop.index }}">
                 </a>
-            {% endfor %}
-        </div>
-        <p><a href="{{ zip_url }}">Download All (ZIP)</a></p>
-        <hr>
-        <p><strong>Print Order Form (coming soon)</strong></p>
-        """, sticker=sticker, image_urls=image_urls, zip_url=zip_url)
+              {% endfor %}
+            </div>
+            <div style="text-align: center;">
+              <a class="download" href="{{ zip_url }}">Download All (ZIP)</a>
+            </div>
+            <footer>
+              &copy; {{ current_year }} Gil Plaquet FilmLab
+            </footer>
+          </div>
+        </body>
+        </html>
+        """, sticker=sticker, image_urls=image_urls, zip_url=zip_url, current_year=datetime.now().year)
 
     return render_template_string("""
     <h2>Enter password to access Roll {{ sticker }}</h2>
