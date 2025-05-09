@@ -38,7 +38,7 @@ def init_b2():
         b2_api = B2Api(info)
         b2_api.authorize_account("production", B2_KEY_ID, B2_APP_KEY)
 
-def generate_signed_url(file_path, expires_in=3600):
+def generate_signed_url(file_path, expires_in=2592000):
     init_b2()
     bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
     file_name = quote(file_path)
@@ -165,6 +165,8 @@ You can view and download your scans at the link below:
 {gallery_link}
 
 To access your gallery, use the password: {password}
+
+This link will remain active for 30 days.
 
 Thanks for sending in your film!
 
