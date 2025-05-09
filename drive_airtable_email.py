@@ -95,7 +95,14 @@ def send_email(to_address, subject, body):
     <div style='font-family: sans-serif;'>{body_html}</div>
     """
 
-    msg.add_alternative(f"<html><body>{html_body}</body></html>", subtype='html')
+    msg.add_alternative(f"<html><body>{html_body}<script>
+  lightGallery(document.getElementById('lightgallery'), {
+    plugins: [lgZoom, lgThumbnail, lgAutoplay, lgFullscreen, lgKeyboard],
+    speed: 400,
+    selector: 'a'
+  });
+</script>
+</body></html>", subtype='html')
 
     try:
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
@@ -232,7 +239,7 @@ def gallery(sticker):
         result = s3.list_objects_v2(Bucket=B2_BUCKET_NAME, Prefix=prefix)
         image_files = [obj["Key"] for obj in result.get("Contents", []) if obj["Key"].lower().endswith(('.jpg', '.jpeg', '.png'))]
         image_urls = [generate_signed_url(f) for f in image_files]
-        zip_url = generate_signed_url(f"{prefix}Roll_{sticker}.zip")
+        zip_url = generate_signed_url(f"{prefix}Archive.zip")
 
         from datetime import datetime
         return render_template_string("""
@@ -303,16 +310,36 @@ def gallery(sticker):
               color: #888888;
             }
           </style>
-        </head>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.1/lightgallery.min.js"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.1/css/lightgallery.min.css" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.1/plugins/zoom/lg-zoom.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.1/plugins/thumbnail/lg-thumbnail.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.1/plugins/autoplay/lg-autoplay.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.1/plugins/fullscreen/lg-fullscreen.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.1/plugins/keyboard/lg-keyboard.min.js"></script>
+<style>
+  .gallery a {
+    position: relative;
+  }
+  .gallery a::after {
+    content: '➔';
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    font-size: 1.2em;
+    color: rgba(0, 0, 0, 0.5);
+  }
+</style>
+</head>
         <body>
           <div class="container">
     <div style="text-align: center; margin-bottom: 20px;">
       <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; height: auto;">
     </div>
             <h1>Roll {{ sticker }}</h1>
-            <div class="gallery">
+            <div class="gallery" id="lightgallery">
               {% for url in image_urls %}
-                <a href="{{ url }}" target="_blank">
+                <a href="{{ url }}" data-lg-size="1400-933">
                   <img src="{{ url }}" alt="Scan {{ loop.index }}">
                 </a>
               {% endfor %}
@@ -328,12 +355,68 @@ def gallery(sticker):
         </html>
         """, sticker=sticker, image_urls=image_urls, zip_url=zip_url, current_year=datetime.now().year)
 
+    from datetime import datetime
     return render_template_string("""
-    <h2>Enter password to access Roll {{ sticker }}</h2>
-    <form method="POST">
-        <input type="password" name="password">
-        <button type="submit">Submit</button>
-    </form>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+      <title>Enter Password – Roll {{ sticker }}</title>
+      <style>
+        body {
+          font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+          background-color: #ffffff;
+          color: #333333;
+          margin: 0;
+          padding: 0;
+        }
+        .container {
+          max-width: 400px;
+          margin: 100px auto;
+          padding: 20px;
+          border: 1px solid #ddd;
+          border-radius: 8px;
+          text-align: center;
+        }
+        h2 {
+          font-size: 1.5em;
+          margin-bottom: 1em;
+        }
+        input[type="password"] {
+          width: 100%;
+          padding: 10px;
+          font-size: 1em;
+          margin-bottom: 1em;
+          border: 1px solid #ccc;
+          border-radius: 4px;
+        }
+        button {
+          padding: 10px 20px;
+          font-size: 1em;
+          border: 2px solid #333;
+          border-radius: 4px;
+          background-color: #fff;
+          color: #333;
+          cursor: pointer;
+          transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        button:hover {
+          background-color: #333;
+          color: #fff;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h2>Enter password to access Roll {{ sticker }}</h2>
+        <form method="POST">
+          <input type="password" name="password" placeholder="Password" required>
+          <button type="submit">Submit</button>
+        </form>
+      </div>
+    </body>
+    </html>
     """, sticker=sticker)
 
 if __name__ == '__main__':
