@@ -147,7 +147,7 @@ def list_roll_folders(prefix="rolls/"):
     roll_names = set()
 
     log(f"📁 Scanning B2 for folders under prefix '{prefix}'")
-    for file_version, _ in bucket.ls(prefix, show_versions=False):
+    for file_version, _ in bucket.ls(prefix):
         log(f"🔎 Found file: {file_version.file_name}")
         parts = file_version.file_name.split("/")
         if len(parts) >= 2:
