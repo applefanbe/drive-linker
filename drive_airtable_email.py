@@ -95,14 +95,7 @@ def send_email(to_address, subject, body):
     <div style='font-family: sans-serif;'>{body_html}</div>
     """
 
-    msg.add_alternative(f"<html><body>{html_body}<script>
-  lightGallery(document.getElementById('lightgallery'), {
-    plugins: [lgZoom, lgThumbnail, lgAutoplay, lgFullscreen, lgKeyboard],
-    speed: 400,
-    selector: 'a'
-  });
-</script>
-</body></html>", subtype='html')
+    msg.add_alternative(f"<html><body>{html_body}</body></html>", subtype='html')
 
     try:
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
