@@ -235,13 +235,12 @@ def gallery(sticker):
         thumb_urls = []
         full_urls = []
         for file in image_files:
-            parts = file.split('/')
-            if "fullres" in parts:
-                filename = parts[-1]
-                folder = parts[-3] if len(parts) >= 3 else ''
+            if '/FULLRES/' in file and file.lower().endswith(('.jpg', '.jpeg', '.png')):
+                filename = file.split('/')[-1]
+                folder = file.split('/')[1]
                 thumb_path = f"rolls/{folder}/THUMB/{filename}"
-                thumb_urls.append(f"{CDN_BASE_URL}/{thumb_path}")
                 full_path = f"rolls/{folder}/FULLRES/{filename}"
+                thumb_urls.append(f"{CDN_BASE_URL}/{thumb_path}")
                 full_urls.append(f"{CDN_BASE_URL}/{full_path}")
         full_urls = [f"{CDN_BASE_URL}/{{file}}" for file in image_files]
         zip_url = f"{CDN_BASE_URL}/{prefix}Archive.zip"
