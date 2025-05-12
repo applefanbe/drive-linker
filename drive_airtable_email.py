@@ -235,6 +235,7 @@ def gallery(sticker):
         thumb_urls = []
         full_urls = []
         for file in image_files:
+            print("DEBUG file:", file)
             if '/FULLRES/' in file and file.lower().endswith(('.jpg', '.jpeg', '.png')):
                 filename = file.split('/')[-1]
                 folder = file.split('/')[1]
