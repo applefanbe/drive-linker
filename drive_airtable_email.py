@@ -231,8 +231,9 @@ def gallery(sticker):
         )
         result = s3.list_objects_v2(Bucket=B2_BUCKET_NAME, Prefix=prefix)
         image_files = [obj["Key"] for obj in result.get("Contents", []) if obj["Key"].lower().endswith(('.jpg', '.jpeg', '.png'))]
-        image_urls = [generate_signed_url(f) for f in image_files]
-        zip_url = generate_signed_url(f"{prefix}Archive.zip")
+        CDN_BASE_URL = "https://cdn.gilplaquet.com"
+        image_urls = [f"{CDN_BASE_URL}/{file}" for file in image_files]
+        zip_url = f"{CDN_BASE_URL}/{prefix}Archive.zip"
 
         from datetime import datetime
         return render_template_string("""
