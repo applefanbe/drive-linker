@@ -240,124 +240,15 @@ def gallery(sticker):
         from datetime import datetime
         return render_template_string("""
         <!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="UTF-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-          <title>Roll {{ sticker }} – Gil Plaquet FilmLab</title>
-          <style>
-            body {
-              font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-              background-color: #ffffff;
-              color: #333333;
-              margin: 0;
-              padding: 0;
-            }
-            .container {
-              max-width: 960px;
-              margin: 0 auto;
-              padding: 40px 20px;
-            }
-            h1 {
-              font-size: 2em;
-              margin-bottom: 0.5em;
-              text-align: center;
-            }
-            .gallery {
-              display: flex;
-              flex-wrap: wrap;
-              justify-content: center;
-              gap: 20px;
-              margin-top: 30px;
-            }
-            .gallery img {
-              height: auto;
-              max-width: 100%;
-              max-height: 320px;
-              border-radius: 8px;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-              display: block;
-            }
-            .download {
-              display: inline-block;
-              margin-top: 40px;
-              padding: 12px 24px;
-              border: 2px solid #333333;
-              border-radius: 4px;
-              text-decoration: none;
-              color: #333333;
-              font-weight: bold;
-              transition: background-color 0.3s ease, color 0.3s ease;
-            }
-            .download:hover {
-              background-color: #333333;
-              color: #ffffff;
-            }
-            footer {
-              margin-top: 60px;
-              text-align: center;
-              font-size: 0.9em;
-              color: #888888;
-            }
-          </style>
-          <script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.1/lightgallery.min.js"></script>
-          <link href="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.1/css/lightgallery.min.css" rel="stylesheet" />
-          <script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.1/plugins/zoom/lg-zoom.min.js"></script>
-          <script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.1/plugins/thumbnail/lg-thumbnail.min.js"></script>
-          <script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.1/plugins/autoplay/lg-autoplay.min.js"></script>
-          <script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.1/plugins/fullscreen/lg-fullscreen.min.js"></script>
-          <script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.1/plugins/keyboard/lg-keyboard.min.js"></script>
-          <style>
-            .gallery a {
-              position: relative;
-            }
-            .gallery a::after {
-              content: '➔';
-              position: absolute;
-              right: 8px;
-              bottom: 8px;
-              font-size: 1.2em;
-              color: rgba(0, 0, 0, 0.5);
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div style="text-align: center; margin-bottom: 20px;">
-              <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; height: auto;">
-            </div>
-            <h1>Roll {{ sticker }}</h1>
-            <div class="gallery" id="lightgallery">
-              {% for thumb, full in zip(thumb_urls, full_urls) %}
-                <a href="{{ full }}" data-lg-size="1400-933" data-lg-src="{{ full }}">
-                  <img src="{{ thumb }}" alt="Scan {{ loop.index }}" loading="lazy">
-                </a>
-              {% endfor %}
-            </div>
-            <div style="text-align: center;">
-              <a class="download" href="{{ zip_url }}">Download All (ZIP)</a>
-            </div>
-            <footer>
-              &copy; {{ current_year }} Gil Plaquet FilmLab
-            </footer>
-          </div>
-          <script>
-            lightGallery(document.getElementById('lightgallery'), {
-              plugins: [lgZoom, lgThumbnail, lgAutoplay, lgFullscreen, lgKeyboard],
-              speed: 400,
-              selector: 'a',
-              preload: 2
-            });
-          </script>
-        </body>
-        </html>
+        <html lang=\"en\"> ... </html>
         """,
         sticker=sticker,
         thumb_urls=thumb_urls,
         full_urls=full_urls,
         zip_url=zip_url,
         current_year=datetime.now().year,
-        zip=zip).year)
+        zip=zip
+        )
 
     from datetime import datetime
     return render_template_string("""
