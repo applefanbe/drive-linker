@@ -287,43 +287,62 @@ def gallery(sticker):
       <style>
   body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    background-color: #fff;
-    color: #111;
+    background-color: #ffffff;
+    color: #333333;
     margin: 0;
     padding: 0;
   }
   .container {
-    max-width: 1000px;
+    max-width: 960px;
     margin: 0 auto;
     padding: 40px 20px;
+    text-align: center;
   }
   h1 {
     font-size: 2em;
-    margin-bottom: 0.5em;
-    text-align: center;
+    margin-bottom: 1em;
   }
   .gallery {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     justify-content: center;
-    gap: 12px;
+    gap: 16px;
   }
-  .thumb-tile {
-    flex: 1 0 auto;
-    max-width: 220px;
-  }
-  .thumb-tile img {
+  .gallery img {
     width: 100%;
     height: auto;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  }
+  input[type="password"] {
+    width: 100%;
+    max-width: 300px;
+    margin: 0 auto 1em;
+    padding: 10px;
+    font-size: 1em;
+    border: 1px solid #ccc;
+    border-radius: 4px;
     display: block;
+  }
+  button {
+    padding: 10px 20px;
+    font-size: 1em;
+    border: 2px solid #333;
+    border-radius: 4px;
+    background-color: #fff;
+    color: #333;
+    cursor: pointer;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  button:hover {
+    background-color: #333;
+    color: #fff;
   }
   footer {
     margin-top: 60px;
     text-align: center;
     font-size: 0.9em;
-    color: #888;
+    color: #888888;
   }
 </style>
     </head>
