@@ -164,7 +164,7 @@ def main():
         body = f"""
 Hi there,
 
-Good news! (One of) The roll(s) you sent in for development just got scanned.
+Good news! A roll you sent in for development just got scanned.
 You can view and download your scans at the link below:
 
 {gallery_link}
@@ -232,7 +232,13 @@ def gallery(sticker):
         result = s3.list_objects_v2(Bucket=B2_BUCKET_NAME, Prefix=prefix)
         image_files = [obj["Key"] for obj in result.get("Contents", []) if obj["Key"].lower().endswith(('.jpg', '.jpeg', '.png'))]
         CDN_BASE_URL = "https://cdn.gilplaquet.com"
-        thumb_urls = [f"{CDN_BASE_URL}/{{file.replace('/fullres/', '/thumb/') if '/fullres/' in file else file}}" for file in image_files]
+        thumb_urls = []
+        full_urls = []
+        for file in image_files:
+            if "fullres" in file:
+                thumb = file.replace("fullres", "thumb")
+                thumb_urls.append(f"{CDN_BASE_URL}/{thumb}")
+                full_urls.append(f"{CDN_BASE_URL}/{file}")
         full_urls = [f"{CDN_BASE_URL}/{{file}}" for file in image_files]
         zip_url = f"{CDN_BASE_URL}/{prefix}Archive.zip"
 
