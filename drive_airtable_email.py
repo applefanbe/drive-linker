@@ -258,11 +258,11 @@ def gallery(sticker):
         </head>
         <body>
             <h1>Gallery test for {{ sticker }}</h1>
-            <div class="gallery" id="lightgallery">
-  {% for thumb, full in zip(thumb_urls, full_urls) %}
-    <a href="{{ full }}" data-lg-size="1400-933" data-lg-src="{{ full }}">
+            <div class="gallery">
+  {% for thumb in thumb_urls %}
+    <div class="thumb-tile">
       <img src="{{ thumb }}" alt="Scan {{ loop.index }}" loading="lazy">
-    </a>
+    </div>
   {% endfor %}
 </div>
         </body>
@@ -285,48 +285,47 @@ def gallery(sticker):
       <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
       <title>Enter Password – Roll {{ sticker }}</title>
       <style>
-        body {
-          font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-          background-color: #ffffff;
-          color: #333333;
-          margin: 0;
-          padding: 0;
-        }
-        .container {
-          max-width: 400px;
-          margin: 100px auto;
-          padding: 20px;
-          border: 1px solid #ddd;
-          border-radius: 8px;
-          text-align: center;
-        }
-        h2 {
-          font-size: 1.5em;
-          margin-bottom: 1em;
-        }
-        input[type="password"] {
-          width: 100%;
-          padding: 10px;
-          font-size: 1em;
-          margin-bottom: 1em;
-          border: 1px solid #ccc;
-          border-radius: 4px;
-        }
-        button {
-          padding: 10px 20px;
-          font-size: 1em;
-          border: 2px solid #333;
-          border-radius: 4px;
-          background-color: #fff;
-          color: #333;
-          cursor: pointer;
-          transition: background-color 0.3s ease, color 0.3s ease;
-        }
-        button:hover {
-          background-color: #333;
-          color: #fff;
-        }
-      </style>
+  body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background-color: #fff;
+    color: #111;
+    margin: 0;
+    padding: 0;
+  }
+  .container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 40px 20px;
+  }
+  h1 {
+    font-size: 2em;
+    margin-bottom: 0.5em;
+    text-align: center;
+  }
+  .gallery {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+  }
+  .thumb-tile {
+    flex: 1 0 auto;
+    max-width: 220px;
+  }
+  .thumb-tile img {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: block;
+  }
+  footer {
+    margin-top: 60px;
+    text-align: center;
+    font-size: 0.9em;
+    color: #888;
+  }
+</style>
     </head>
     <body>
       <div class="container">
