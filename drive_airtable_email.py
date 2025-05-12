@@ -240,7 +240,24 @@ def gallery(sticker):
         from datetime import datetime
         return render_template_string("""
         <!DOCTYPE html>
-        <html lang=\"en\"> ... </html>
+        <html lang=\"en\">
+        <head>
+            <meta charset=\"UTF-8\">
+            <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+            <title>Test Gallery</title>
+        </head>
+        <body>
+            <h1>Gallery test for {{ sticker }}</h1>
+            <ul>
+                {% for thumb, full in zip(thumb_urls, full_urls) %}
+                    <li>
+                        <p>Thumb: {{ thumb }}</p>
+                        <p>Full: {{ full }}</p>
+                    </li>
+                {% endfor %}
+            </ul>
+        </body>
+        </html>
         """,
         sticker=sticker,
         thumb_urls=thumb_urls,
