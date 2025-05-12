@@ -257,14 +257,13 @@ def gallery(sticker):
         </head>
         <body>
             <h1>Gallery test for {{ sticker }}</h1>
-            <ul>
+            <div class="gallery" id="lightgallery">
   {% for thumb, full in zip(thumb_urls, full_urls) %}
-    <li>
-      <p>Thumb: {{ thumb }}</p>
-      <p>Full: {{ full }}</p>
-    </li>
+    <a href="{{ full }}" data-lg-size="1400-933" data-lg-src="{{ full }}">
+      <img src="{{ thumb }}" alt="Scan {{ loop.index }}" loading="lazy">
+    </a>
   {% endfor %}
-</ul>
+</div>
         </body>
         </html>
         """,
