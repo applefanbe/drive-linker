@@ -265,6 +265,11 @@ def gallery(sticker):
     </div>
   {% endfor %}
 </div>
+<div style="text-align: center; margin-top: 40px;">
+  <a class="download" href="{{ zip_url }}">Download All (ZIP)</a>
+</div>
+  {% endfor %}
+</div>
         </body>
         </html>
         """,
