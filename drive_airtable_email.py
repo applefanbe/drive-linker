@@ -250,34 +250,92 @@ def gallery(sticker):
         from datetime import datetime
         return render_template_string("""
         <!DOCTYPE html>
-        <html lang=\"en\">
+        <html lang="en">
         <head>
-            <meta charset=\"UTF-8\">
-            <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
-            <title>Test Gallery</title>
+          <meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+          <title>Roll {{ sticker }} – Gil Plaquet FilmLab</title>
+          <style>
+            body {
+              font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+              background-color: #ffffff;
+              color: #333333;
+              margin: 0;
+              padding: 0;
+            }
+            .container {
+              max-width: 960px;
+              margin: 0 auto;
+              padding: 40px 20px;
+              text-align: center;
+            }
+            h1 {
+              font-size: 2em;
+              margin-bottom: 1em;
+            }
+            .gallery {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+              justify-content: center;
+              gap: 16px;
+            }
+            .gallery img {
+              width: 100%;
+              height: auto;
+              border-radius: 6px;
+              box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+            }
+            .download {
+              display: inline-block;
+              margin-top: 40px;
+              padding: 12px 24px;
+              border: 2px solid #333;
+              border-radius: 4px;
+              text-decoration: none;
+              color: #333;
+              font-weight: bold;
+              transition: background-color 0.3s ease, color 0.3s ease;
+            }
+            .download:hover {
+              background-color: #333;
+              color: #fff;
+            }
+            footer {
+              margin-top: 60px;
+              text-align: center;
+              font-size: 0.9em;
+              color: #888;
+            }
+          </style>
         </head>
         <body>
-            <h1>Gallery test for {{ sticker }}</h1>
+          <div class="container">
+            <div style="text-align: center; margin-bottom: 20px;">
+              <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; height: auto;">
+            </div>
+            <h1>Roll {{ sticker }}</h1>
             <div class="gallery">
-  {% for thumb in thumb_urls %}
-    <div class="thumb-tile">
-      <img src="{{ thumb }}" alt="Scan {{ loop.index }}" loading="lazy">
-    </div>
-  {% endfor %}
-</div>
-<div style="text-align: center; margin-top: 40px;">
-  <a class="download" href="{{ zip_url }}">Download All (ZIP)</a>
-</div>
-  {% endfor %}
-</div>
+              {% for thumb in thumb_urls %}
+                <div class="thumb-tile">
+                  <img src="{{ thumb }}" alt="Scan {{ loop.index }}" loading="lazy">
+                </div>
+              {% endfor %}
+            </div>
+            <div style="text-align: center;">
+              <a class="download" href="{{ zip_url }}">Download All (ZIP)</a>
+            </div>
+            <footer>
+              &copy; {{ current_year }} Gil Plaquet FilmLab
+            </footer>
+          </div>
         </body>
         </html>
         """,
         sticker=sticker,
         thumb_urls=thumb_urls,
-        full_urls=full_urls,
         zip_url=zip_url,
-        current_year=datetime.now().year,
+        current_year=datetime.now().year
+        ).year,
         zip=zip
         )
 
