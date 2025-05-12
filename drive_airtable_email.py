@@ -258,13 +258,13 @@ def gallery(sticker):
         <body>
             <h1>Gallery test for {{ sticker }}</h1>
             <ul>
-                {% for thumb, full in zip(thumb_urls, full_urls) %}
-                    <li>
-                        <p>Thumb: {{ thumb }}</p>
-                        <p>Full: {{ full }}</p>
-                    </li>
-                {% endfor %}
-            </ul>
+  {% for thumb, full in zip(thumb_urls, full_urls) %}
+    <li>
+      <p>Thumb: {{ thumb }}</p>
+      <p>Full: {{ full }}</p>
+    </li>
+  {% endfor %}
+</ul>
         </body>
         </html>
         """,
