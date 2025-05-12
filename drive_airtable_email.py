@@ -232,7 +232,8 @@ def gallery(sticker):
         result = s3.list_objects_v2(Bucket=B2_BUCKET_NAME, Prefix=prefix)
         image_files = [obj["Key"] for obj in result.get("Contents", []) if obj["Key"].lower().endswith(('.jpg', '.jpeg', '.png'))]
         CDN_BASE_URL = "https://cdn.gilplaquet.com"
-        image_urls = [f"{CDN_BASE_URL}/{file}" for file in image_files]
+        thumb_urls = [f"{CDN_BASE_URL}/{{file.replace('/fullres/', '/thumb/') if '/fullres/' in file else file}}" for file in image_files]
+        full_urls = [f"{CDN_BASE_URL}/{{file}}" for file in image_files]
         zip_url = f"{CDN_BASE_URL}/{prefix}Archive.zip"
 
         from datetime import datetime
@@ -262,11 +263,12 @@ def gallery(sticker):
               text-align: center;
             }
             .gallery {
-              display: grid;
-              grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-              gap: 20px;
-              margin-top: 30px;
-            }
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 30px;
+}
             .gallery a {
               display: block;
               border-radius: 8px;
@@ -278,10 +280,13 @@ def gallery(sticker):
               transform: scale(1.02);
             }
             .gallery img {
-              width: 100%;
-              height: auto;
-              display: block;
-            }
+  height: auto;
+  max-width: 100%;
+  max-height: 320px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  display: block;
+}
             .download {
               display: inline-block;
               margin-top: 40px;
@@ -338,12 +343,17 @@ def gallery(sticker):
     <div style="text-align: center; margin-bottom: 20px;">
       <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; height: auto;">
     </div>
+    <div style="text-align: center; margin-bottom: 20px;">
+      <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; height: auto;">
+    </div>
             <h1>Roll {{ sticker }}</h1>
             <div class="gallery" id="lightgallery">
-              {% for url in image_urls %}
-                <a href="{{ url }}" data-lg-size="1400-933" data-lg-src="{{ url }}" class="gallery-item">
-                  <img src="{{ url }}" alt="Scan {{ loop.index }}">
-                </a>
+  {% for thumb, full in zip(thumb_urls, full_urls) %}
+    <a href="{{ full }}" data-lg-size="1400-933" data-lg-src="{{ full }}">
+      <img src="{{ thumb }}" alt="Scan {{ loop.index }}" loading="lazy">
+    </a>
+  {% endfor %}
+</div>
               {% endfor %}
             </div>
             <div style="text-align: center;">
