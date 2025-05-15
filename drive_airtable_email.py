@@ -234,7 +234,6 @@ def gallery(sticker):
         image_urls = [generate_signed_url(f) for f in image_files]
         zip_url = generate_signed_url(f"{prefix}Archive.zip")
 
-        from datetime import datetime
         return render_template_string("""
         <!DOCTYPE html>
         <html lang="en">
@@ -262,24 +261,17 @@ def gallery(sticker):
             }
             .gallery {
               display: grid;
-              grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-              gap: 20px;
+              grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+              gap: 10px;
               margin-top: 30px;
-            }
-            .gallery a {
-              display: block;
-              border-radius: 8px;
-              overflow: hidden;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-              transition: transform 0.2s ease;
-            }
-            .gallery a:hover {
-              transform: scale(1.02);
             }
             .gallery img {
               width: 100%;
-              height: auto;
+              height: 100%;
+              object-fit: cover;
               display: block;
+              border-radius: 8px;
+              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             }
             .download {
               display: inline-block;
@@ -303,46 +295,16 @@ def gallery(sticker):
               color: #888888;
             }
           </style>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.1/lightgallery.min.js"></script>
-<link href="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.1/css/lightgallery.min.css" rel="stylesheet" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.1/plugins/zoom/lg-zoom.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.1/plugins/thumbnail/lg-thumbnail.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.1/plugins/autoplay/lg-autoplay.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.1/plugins/fullscreen/lg-fullscreen.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.1/plugins/keyboard/lg-keyboard.min.js"></script>
-<script>
-  lightGallery(document.getElementById('lightgallery'), {
-    plugins: [lgZoom, lgThumbnail, lgAutoplay, lgFullscreen, lgKeyboard],
-    speed: 400,
-    selector: 'a',
-    preload: 2
-  });
-</script>
-<style>
-  .gallery a {
-    position: relative;
-  }
-  .gallery a::after {
-    content: '➔';
-    position: absolute;
-    right: 8px;
-    bottom: 8px;
-    font-size: 1.2em;
-    color: rgba(0, 0, 0, 0.5);
-  }
-</style>
-</head>
+        </head>
         <body>
           <div class="container">
-    <div style="text-align: center; margin-bottom: 20px;">
-      <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; height: auto;">
-    </div>
+            <div style="text-align: center; margin-bottom: 20px;">
+              <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; height: auto;">
+            </div>
             <h1>Roll {{ sticker }}</h1>
-            <div class="gallery" id="lightgallery">
+            <div class="gallery">
               {% for url in image_urls %}
-                <a href="{{ url }}" data-lg-size="1400-933" data-lg-src="{{ url }}" class="gallery-item">
-                  <img src="{{ url }}" alt="Scan {{ loop.index }}">
-                </a>
+                <img src="{{ url }}" alt="Scan {{ loop.index }}">
               {% endfor %}
             </div>
             <div style="text-align: center;">
@@ -356,7 +318,6 @@ def gallery(sticker):
         </html>
         """, sticker=sticker, image_urls=image_urls, zip_url=zip_url, current_year=datetime.now().year)
 
-    from datetime import datetime
     return render_template_string("""
     <!DOCTYPE html>
     <html lang="en">
@@ -419,6 +380,3 @@ def gallery(sticker):
     </body>
     </html>
     """, sticker=sticker)
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
