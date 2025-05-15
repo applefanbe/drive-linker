@@ -233,18 +233,9 @@ def gallery(sticker):
         image_files = [obj["Key"] for obj in result.get("Contents", []) if obj["Key"].lower().endswith(('.jpg', '.jpeg', '.png'))]
         CDN_BASE_URL = "https://cdn.gilplaquet.com"
         thumb_urls = []
-        full_urls = []
         for file in image_files:
-            print("DEBUG file:", file)
-            if '/FULLRES/' in file and file.lower().endswith(('.jpg', '.jpeg', '.png')):
-                filename = file.split('/')[-1]
-                folder = file.split('/')[1]
-                thumb_path = f"rolls/{folder}/THUMB/{filename}"
-                full_path = f"rolls/{folder}/FULLRES/{filename}"
-                thumb_urls.append(f"{CDN_BASE_URL}/{thumb_path}")
-                full_urls.append(f"{CDN_BASE_URL}/{full_path}")
-        full_urls = [f"{CDN_BASE_URL}/{{file}}" for file in image_files]
-        zip_url = f"{CDN_BASE_URL}/{prefix}Archive.zip"
+            if '/THUMB/' in file and file.lower().endswith(('.jpg', '.jpeg', '.png')):
+                thumb_urls.append(f"{CDN_BASE_URL}/{file}")
 
         from datetime import datetime
         from datetime import datetime
