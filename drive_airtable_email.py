@@ -242,34 +242,12 @@ def gallery(sticker):
         return print("DEBUG sticker:", sticker)
         print("DEBUG thumb_urls:", thumb_urls)
         print("DEBUG zip_url:", zip_url)
-        render_template_string("""
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Roll {{ sticker }} – Gil Plaquet FilmLab</title>
-          <style>
-            body {
-              font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-              background-color: #ffffff;
-              color: #333333;
-              margin: 0;
-              padding: 0;
-            }
-            .container {
-              max-width: 960px;
-              margin: 0 auto;
-              padding: 40px 20px;
-              text-align: center;
-            }
-            h1 {
-              font-size: 2em;
-              margin-bottom: 1em;
-            }
-            .gallery {
-              display: grid;
-              grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        render_template_string(template,
+        sticker=sticker,
+        thumb_urls=thumb_urls,
+        zip_url=zip_url,
+        current_year=datetime.now().year
+    );
               justify-content: center;
               gap: 16px;
             }
