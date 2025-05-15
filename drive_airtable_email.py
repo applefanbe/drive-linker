@@ -239,12 +239,15 @@ def gallery(sticker):
 
         from datetime import datetime
         from datetime import datetime
-        return render_template_string("""
+        return print("DEBUG sticker:", sticker)
+        print("DEBUG thumb_urls:", thumb_urls)
+        print("DEBUG zip_url:", zip_url)
+        render_template_string("""
         <!DOCTYPE html>
         <html lang="en">
         <head>
-          <meta charset="UTF-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>Roll {{ sticker }} – Gil Plaquet FilmLab</title>
           <style>
             body {
@@ -326,6 +329,7 @@ def gallery(sticker):
         thumb_urls=thumb_urls,
         zip_url=zip_url,
         current_year=datetime.now().year
+    ).year
         ).year,
         zip=zip
         )
