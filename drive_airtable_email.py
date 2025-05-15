@@ -92,7 +92,7 @@ def send_email(to_address, subject, body):
     <div style='text-align: center;'>
       <img src='https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png' alt='Logo' style='width: 250px; margin-bottom: 20px;'>
     </div>
-    <div style='font-family: sans-serif;'>{body_html}</div>
+    <div style='font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;'>{body_html}</div>
     """
 
     msg.add_alternative(f"<html><body>{html_body}</body></html>", subtype='html')
@@ -303,8 +303,8 @@ def gallery(sticker):
     text-align: center;
   }
   .gallery {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     justify-content: center;
     gap: 12px;
   }
@@ -329,6 +329,9 @@ def gallery(sticker):
     </head>
     <body>
       <div class="container">
+  <div style="text-align: center; margin-bottom: 20px;">
+    <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; height: auto;">
+  </div>
         <h2>Enter password to access Roll {{ sticker }}</h2>
         <form method="POST">
           <input type="password" name="password" placeholder="Password" required>
