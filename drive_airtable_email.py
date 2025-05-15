@@ -92,7 +92,7 @@ def send_email(to_address, subject, body):
     <div style='text-align: center;'>
       <img src='https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png' alt='Logo' style='width: 250px; margin-bottom: 20px;'>
     </div>
-    <div style='font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;'>{body_html}</div>
+    <div style='font-family: sans-serif;'>{body_html}</div>
     """
 
     msg.add_alternative(f"<html><body>{html_body}</body></html>", subtype='html')
@@ -233,170 +233,111 @@ def gallery(sticker):
         image_files = [obj["Key"] for obj in result.get("Contents", []) if obj["Key"].lower().endswith(('.jpg', '.jpeg', '.png'))]
         CDN_BASE_URL = "https://cdn.gilplaquet.com"
         thumb_urls = []
+        full_urls = []
         for file in image_files:
-            if '/THUMB/' in file and file.lower().endswith(('.jpg', '.jpeg', '.png')):
-                thumb_urls.append(f"{CDN_BASE_URL}/{file}")
+            print("DEBUG file:", file)
+            if '/FULLRES/' in file and file.lower().endswith(('.jpg', '.jpeg', '.png')):
+                filename = file.split('/')[-1]
+                folder = file.split('/')[1]
+                thumb_path = f"rolls/{folder}/THUMB/{filename}"
+                full_path = f"rolls/{folder}/FULLRES/{filename}"
+                thumb_urls.append(f"{CDN_BASE_URL}/{thumb_path}")
+                full_urls.append(f"{CDN_BASE_URL}/{full_path}")
+        full_urls = [f"{CDN_BASE_URL}/{{file}}" for file in image_files]
+        zip_url = f"{CDN_BASE_URL}/{prefix}Archive.zip"
 
         from datetime import datetime
         from datetime import datetime
-        return print("DEBUG sticker:", sticker)
-        print("DEBUG thumb_urls:", thumb_urls)
-        print("DEBUG zip_url:", zip_url)
-        render_template_string(template,
-        sticker=sticker,
-        thumb_urls=thumb_urls,
-        zip_url=zip_url,
-        current_year=datetime.now().year
-    );
-              justify-content: center;
-              gap: 16px;
-            }
-            .gallery img {
-              width: 100%;
-              height: auto;
-              border-radius: 6px;
-              box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-            }
-            .download {
-              display: inline-block;
-              margin-top: 40px;
-              padding: 12px 24px;
-              border: 2px solid #333;
-              border-radius: 4px;
-              text-decoration: none;
-              color: #333;
-              font-weight: bold;
-              transition: background-color 0.3s ease, color 0.3s ease;
-            }
-            .download:hover {
-              background-color: #333;
-              color: #fff;
-            }
-            footer {
-              margin-top: 60px;
-              text-align: center;
-              font-size: 0.9em;
-              color: #888;
-            }
-          </style>
+        return render_template_string("""
+        <!DOCTYPE html>
+        <html lang=\"en\">
+        <head>
+            <meta charset=\"UTF-8\">
+            <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+            <title>Test Gallery</title>
         </head>
         <body>
-          <div class="container">
-            <div style="text-align: center; margin-bottom: 20px;">
-              <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; height: auto;">
-            </div>
-            <h1>Roll {{ sticker }}</h1>
+            <h1>Gallery test for {{ sticker }}</h1>
             <div class="gallery">
-              {% for thumb in thumb_urls %}
-                <div class="thumb-tile">
-                  <img src="{{ thumb }}" alt="Scan {{ loop.index }}" loading="lazy">
-                </div>
-              {% endfor %}
-            </div>
-            <div style="text-align: center;">
-              <a class="download" href="{{ zip_url }}">Download All (ZIP)</a>
-            </div>
-            <footer>
-              &copy; {{ current_year }} Gil Plaquet FilmLab
-            </footer>
-          </div>
+  {% for thumb in thumb_urls %}
+    <div class="thumb-tile">
+      <img src="{{ thumb }}" alt="Scan {{ loop.index }}" loading="lazy">
+    </div>
+  {% endfor %}
+</div>
         </body>
         </html>
         """,
         sticker=sticker,
         thumb_urls=thumb_urls,
+        full_urls=full_urls,
         zip_url=zip_url,
-        current_year=datetime.now().year
-    ).year
-        ).year,
+        current_year=datetime.now().year,
         zip=zip
         )
 
     from datetime import datetime
-    return template = """
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset='UTF-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-    <title>Roll {{ sticker }} – Gil Plaquet FilmLab</title>
-    <style>
-      body {
-        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-        background-color: #ffffff;
-        color: #333333;
-        margin: 0;
-        padding: 0;
-      }
-      .container {
-        max-width: 960px;
-        margin: 0 auto;
-        padding: 40px 20px;
-        text-align: center;
-      }
-      h1 {
-        font-size: 2em;
-        margin-bottom: 1em;
-      }
-      .gallery {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        justify-content: center;
-        gap: 16px;
-      }
-      .gallery img {
-        width: 100%;
-        height: auto;
-        border-radius: 6px;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-      }
-      .download {
-        display: inline-block;
-        margin-top: 40px;
-        padding: 12px 24px;
-        border: 2px solid #333;
-        border-radius: 4px;
-        text-decoration: none;
-        color: #333;
-        font-weight: bold;
-        transition: background-color 0.3s ease, color 0.3s ease;
-      }
-      .download:hover {
-        background-color: #333;
-        color: #fff;
-      }
-      footer {
-        margin-top: 60px;
-        text-align: center;
-        font-size: 0.9em;
-        color: #888;
-      }
-    </style>
-  </head>
-  <body>
-    <div class='container'>
-      <div style='text-align: center; margin-bottom: 20px;'>
-        <img src='https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png' alt='Logo' style='max-width: 200px; height: auto;'>
+    return render_template_string("""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+      <title>Enter Password – Roll {{ sticker }}</title>
+      <style>
+  body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background-color: #fff;
+    color: #111;
+    margin: 0;
+    padding: 0;
+  }
+  .container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 40px 20px;
+  }
+  h1 {
+    font-size: 2em;
+    margin-bottom: 0.5em;
+    text-align: center;
+  }
+  .gallery {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+  }
+  .thumb-tile {
+    flex: 1 0 auto;
+    max-width: 220px;
+  }
+  .thumb-tile img {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: block;
+  }
+  footer {
+    margin-top: 60px;
+    text-align: center;
+    font-size: 0.9em;
+    color: #888;
+  }
+</style>
+    </head>
+    <body>
+      <div class="container">
+        <h2>Enter password to access Roll {{ sticker }}</h2>
+        <form method="POST">
+          <input type="password" name="password" placeholder="Password" required>
+          <button type="submit">Submit</button>
+        </form>
       </div>
-      <h1>Roll {{ sticker }}</h1>
-      <div class='gallery'>
-        {% for thumb in thumb_urls %}
-          <div class='thumb-tile'>
-            <img src='{{ thumb }}' alt='Scan {{ loop.index }}' loading='lazy'>
-          </div>
-        {% endfor %}
-      </div>
-      <div style='text-align: center;'>
-        <a class='download' href='{{ zip_url }}'>Download All (ZIP)</a>
-      </div>
-      <footer>
-        &copy; {{ current_year }} Gil Plaquet FilmLab
-      </footer>
-    </div>
-  </body>
-</html>
-"""
- sticker=sticker)
+    </body>
+    </html>
+    """, sticker=sticker)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
