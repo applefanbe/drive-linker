@@ -164,7 +164,7 @@ def main():
         body = f"""
 Hi there,
 
-Good news! (One of) The roll(s) you sent in for development just got scanned.
+Good news! A roll you sent in for development just got scanned.
 You can view and download your scans at the link below:
 
 {gallery_link}
@@ -307,7 +307,7 @@ def gallery(sticker):
               {% endfor %}
             </div>
             <footer>
-              &copy; {{ current_year }} Gil Plaquet FilmLab
+              &copy; {{ current_year }} Gil Plaquet
             </footer>
           </div>
         </body>
