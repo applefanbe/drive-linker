@@ -238,8 +238,8 @@ def gallery(sticker):
         <!DOCTYPE html>
         <html lang="en">
         <head>
-          <meta charset="UTF-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>Roll {{ sticker }} – Gil Plaquet FilmLab</title>
           <style>
             body {
@@ -253,11 +253,11 @@ def gallery(sticker):
               max-width: 960px;
               margin: 0 auto;
               padding: 40px 20px;
+              text-align: center;
             }
             h1 {
               font-size: 2em;
               margin-bottom: 0.5em;
-              text-align: center;
             }
             .gallery {
               display: grid;
@@ -267,15 +267,14 @@ def gallery(sticker):
             }
             .gallery img {
               width: 100%;
-              height: 100%;
-              object-fit: cover;
+              height: auto;
               display: block;
               border-radius: 8px;
               box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             }
             .download {
               display: inline-block;
-              margin-top: 40px;
+              margin-bottom: 30px;
               padding: 12px 24px;
               border: 2px solid #333333;
               border-radius: 4px;
@@ -290,7 +289,6 @@ def gallery(sticker):
             }
             footer {
               margin-top: 60px;
-              text-align: center;
               font-size: 0.9em;
               color: #888888;
             }
@@ -298,17 +296,15 @@ def gallery(sticker):
         </head>
         <body>
           <div class="container">
-            <div style="text-align: center; margin-bottom: 20px;">
-              <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; height: auto;">
+            <div>
+              <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; height: auto; margin-bottom: 20px;">
             </div>
+            <a class="download" href="{{ zip_url }}">Download All (ZIP)</a>
             <h1>Roll {{ sticker }}</h1>
             <div class="gallery">
               {% for url in image_urls %}
                 <img src="{{ url }}" alt="Scan {{ loop.index }}">
               {% endfor %}
-            </div>
-            <div style="text-align: center;">
-              <a class="download" href="{{ zip_url }}">Download All (ZIP)</a>
             </div>
             <footer>
               &copy; {{ current_year }} Gil Plaquet FilmLab
@@ -322,8 +318,8 @@ def gallery(sticker):
     <!DOCTYPE html>
     <html lang="en">
     <head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Enter Password – Roll {{ sticker }}</title>
       <style>
         body {
@@ -340,6 +336,11 @@ def gallery(sticker):
           border: 1px solid #ddd;
           border-radius: 8px;
           text-align: center;
+        }
+        img {
+          max-width: 200px;
+          height: auto;
+          margin-bottom: 20px;
         }
         h2 {
           font-size: 1.5em;
@@ -371,6 +372,7 @@ def gallery(sticker):
     </head>
     <body>
       <div class="container">
+        <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo">
         <h2>Enter password to access Roll {{ sticker }}</h2>
         <form method="POST">
           <input type="password" name="password" placeholder="Password" required>
