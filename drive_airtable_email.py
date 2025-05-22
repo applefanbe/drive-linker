@@ -257,11 +257,15 @@ def print_order(sticker):
         client_email = record['fields'].get('Client Email', 'Unknown')
 
         body = f"Client: {client_name}
-Email: {client_email}
-Roll Number: {sticker}
-
+"
+        body += f"Email: {client_email}
+"
+        body += f"Roll Number: {sticker}
+"
+        body += "
 Order:
 "
+
         for item in selections:
             body += f"- {item['filename']} | {item['size']} | {item['paper']} | Border: {item['border']} | €{item['price']}
 "
