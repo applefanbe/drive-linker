@@ -74,12 +74,28 @@ def find_airtable_record(twin_sticker):
     return records[0] if records else None
 
 # === Email ===
+def generate_password(length=8):
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+
 def send_email(to_address, subject, body):
+    bcc_address = "filmlab@gilplaquet.com"
+    log("✉️ Composing message...")
     msg = EmailMessage()
     msg["From"] = "Gil Plaquet FilmLab <filmlab@gilplaquet.com>"
     msg["To"] = to_address
+    msg["Bcc"] = bcc_address
     msg["Subject"] = subject
     msg.set_content(body)
+
+    body_html = body.replace('\n', '<br>')
+    html_body = f"""
+    <div style='text-align: center;'>
+      <img src='https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png' alt='Logo' style='width: 250px; margin-bottom: 20px;'>
+    </div>
+    <div style='font-family: sans-serif;'>{body_html}</div>
+    """
+
+    msg.add_alternative(f"<html><body>{html_body}</body></html>", subtype='html')
 
     try:
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
@@ -91,6 +107,13 @@ def send_email(to_address, subject, body):
         log(f"❌ Email failed: {e}")
 
 # === Folder Utilities ===
+def load_processed():
+    return set(open(STATE_FILE).read().splitlines()) if os.path.exists(STATE_FILE) else set()
+
+def save_processed(folder_name):
+    with open(STATE_FILE, "a") as f:
+        f.write(folder_name + "\n")
+
 def list_roll_folders(prefix="rolls/"):
     s3 = boto3.client(
         's3',
@@ -106,6 +129,75 @@ def list_roll_folders(prefix="rolls/"):
         if len(parts) >= 2:
             folders.add(parts[1])
     return sorted(folders)
+
+# === Main ===
+def main():
+    log("🚀 Script triggered.")
+    processed = load_processed()
+    folders = list_roll_folders()
+
+    for folder in folders:
+        if folder in processed:
+            log(f"⏭️ Already processed: {folder}")
+            continue
+
+        twin_sticker = folder.split("_")[-1].lstrip("0")
+        record = find_airtable_record(twin_sticker)
+        if not record:
+            log(f"❌ No Airtable match for {twin_sticker}")
+            continue
+
+        if record['fields'].get('Email Sent'):
+            log(f"⏭️ Already emailed: {twin_sticker}")
+            continue
+
+        email = record['fields'].get('Client Email')
+        if not email:
+            log(f"❌ Missing Client Email in Airtable record")
+            continue
+
+        password = generate_password()
+        update_airtable_record(record['id'], {"Password": password})
+
+        gallery_link = f"https://scans.gilplaquet.com/roll/{twin_sticker}"
+        subject = f"Your Scans Are Ready - Roll {twin_sticker}"
+        body = f"""
+Hi there,
+
+Good news! A roll you sent in for development just got scanned.
+You can view and download your scans at the link below:
+
+{gallery_link}
+
+To access your gallery, use the password: {password}
+
+This link will remain active for 7 days.
+
+Thanks for sending in your film!
+
+Gil Plaquet
+www.gilplaquet.com
+        """
+
+        send_email(email, subject, body)
+        update_airtable_record(record['id'], {"Email Sent": True})
+        save_processed(folder)
+        log(f"✅ Processed and emailed: {twin_sticker}")
+
+# === Flask Routes ===
+@app.route('/')
+def index():
+    return "🟢 Render is online."
+
+@app.route('/trigger')
+def trigger():
+    if request.args.get("token") != TRIGGER_TOKEN:
+        return "❌ Unauthorized", 403
+    try:
+        main()
+        return "✅ Script ran successfully."
+    except Exception as e:
+        return f"❌ Script failed: {e}"
 
 @app.route('/roll/<sticker>', methods=['GET', 'POST'])
 def gallery(sticker):
@@ -144,31 +236,79 @@ def gallery(sticker):
 
         return render_template_string("""
         <!DOCTYPE html>
-        <html lang='en'>
+        <html lang="en">
         <head>
-          <meta charset='UTF-8'>
-          <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>Roll {{ sticker }} – Gil Plaquet FilmLab</title>
           <style>
-            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #fff; color: #333; margin: 0; padding: 0; }
-            .container { max-width: 960px; margin: 0 auto; padding: 40px 20px; text-align: center; }
-            .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; margin-top: 30px; }
-            .gallery img { width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-            .download, .print-order { display: inline-block; margin-bottom: 20px; padding: 12px 24px; border: 2px solid #333; border-radius: 4px; text-decoration: none; color: #333; font-weight: bold; margin-right: 10px; transition: background 0.3s, color 0.3s; }
-            .download:hover, .print-order:hover { background-color: #333; color: #fff; }
-            footer { margin-top: 60px; font-size: 0.9em; color: #888; }
+            body {
+              font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+              background-color: #ffffff;
+              color: #333333;
+              margin: 0;
+              padding: 0;
+            }
+            .container {
+              max-width: 960px;
+              margin: 0 auto;
+              padding: 40px 20px;
+              text-align: center;
+            }
+            h1 {
+              font-size: 2em;
+              margin-bottom: 0.5em;
+            }
+            .gallery {
+              display: grid;
+              grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+              gap: 10px;
+              margin-top: 30px;
+            }
+            .gallery img {
+              width: 100%;
+              height: auto;
+              display: block;
+              border-radius: 8px;
+              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            }
+            .download {
+              display: inline-block;
+              margin-bottom: 30px;
+              padding: 12px 24px;
+              border: 2px solid #333333;
+              border-radius: 4px;
+              text-decoration: none;
+              color: #333333;
+              font-weight: bold;
+              transition: background-color 0.3s ease, color 0.3s ease;
+            }
+            .download:hover {
+              background-color: #333333;
+              color: #ffffff;
+            }
+            footer {
+              margin-top: 60px;
+              font-size: 0.9em;
+              color: #888888;
+            }
           </style>
         </head>
         <body>
-          <div class='container'>
-            <img src='https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png' alt='Logo' style='max-width:200px;margin-bottom:20px;'>
-            <a class='download' href='{{ zip_url }}'>Download All (ZIP)</a>
-            <a class='print-order' href='/print-order/{{ sticker }}'>Order Prints</a>
-            <h1>Roll {{ sticker }}</h1>
-            <div class='gallery'>
-              {% for url in image_urls %}<img src='{{ url }}' alt='Scan {{ loop.index }}'>{% endfor %}
+          <div class="container">
+            <div>
+              <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; height: auto; margin-bottom: 20px;">
             </div>
-            <footer>&copy; {{ current_year }} Gil Plaquet</footer>
+            <a class="download" href="{{ zip_url }}">Download All (ZIP)</a>
+            <h1>Roll {{ sticker }}</h1>
+            <div class="gallery">
+              {% for url in image_urls %}
+                <img src="{{ url }}" alt="Scan {{ loop.index }}">
+              {% endfor %}
+            </div>
+            <footer>
+              &copy; {{ current_year }} Gil Plaquet
+            </footer>
           </div>
         </body>
         </html>
@@ -176,107 +316,72 @@ def gallery(sticker):
 
     return render_template_string("""
     <!DOCTYPE html>
-    <html lang='en'>
-    <head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>
-    <title>Enter Password – Roll {{ sticker }}</title>
-    <style>body { font-family: Helvetica Neue, sans-serif; background: #fff; color: #333; margin: 0; padding: 0; }
-    .container { max-width: 400px; margin: 100px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; text-align: center; }
-    img { max-width: 200px; margin-bottom: 20px; }
-    h2 { font-size: 1.5em; margin-bottom: 1em; }
-    input[type='password'] { width: 100%; padding: 10px; font-size: 1em; margin-bottom: 1em; border: 1px solid #ccc; border-radius: 4px; }
-    button { padding: 10px 20px; font-size: 1em; border: 2px solid #333; border-radius: 4px; background: #fff; color: #333; cursor: pointer; transition: all 0.3s; }
-    button:hover { background: #333; color: #fff; }
-    </style>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Enter Password – Roll {{ sticker }}</title>
+      <style>
+        body {
+          font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+          background-color: #ffffff;
+          color: #333333;
+          margin: 0;
+          padding: 0;
+        }
+        .container {
+          max-width: 400px;
+          margin: 100px auto;
+          padding: 20px;
+          border: 1px solid #ddd;
+          border-radius: 8px;
+          text-align: center;
+        }
+        img {
+          max-width: 200px;
+          height: auto;
+          margin-bottom: 20px;
+        }
+        h2 {
+          font-size: 1.5em;
+          margin-bottom: 1em;
+        }
+        input[type="password"] {
+          width: 100%;
+          padding: 10px;
+          font-size: 1em;
+          margin-bottom: 1em;
+          border: 1px solid #ccc;
+          border-radius: 4px;
+        }
+        button {
+          padding: 10px 20px;
+          font-size: 1em;
+          border: 2px solid #333;
+          border-radius: 4px;
+          background-color: #fff;
+          color: #333;
+          cursor: pointer;
+          transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        button:hover {
+          background-color: #333;
+          color: #fff;
+        }
+      </style>
     </head>
-    <body><div class='container'>
-    <img src='https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png' alt='Logo'>
-    <h2>Enter password to access Roll {{ sticker }}</h2>
-    <form method='POST'>
-      <input type='password' name='password' placeholder='Password' required>
-      <button type='submit'>Submit</button>
-    </form></div></body></html>
+    <body>
+      <div class="container">
+        <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo">
+        <h2>Enter password to access Roll {{ sticker }}</h2>
+        <form method="POST">
+          <input type="password" name="password" placeholder="Password" required>
+          <button type="submit">Submit</button>
+        </form>
+      </div>
+    </body>
+    </html>
     """, sticker=sticker)
-
-
-@app.route('/print-order/<sticker>', methods=['GET', 'POST'])
-def print_order(sticker):
-    record = find_airtable_record(sticker)
-    if not record:
-        return "Roll not found.", 404
-
-    def find_folder_by_suffix(suffix):
-        folders = list_roll_folders()
-        for name in folders:
-            if name.endswith(suffix.zfill(6)):
-                return name
-        return None
-
-    folder = find_folder_by_suffix(sticker)
-    if not folder:
-        return f"No folder found for sticker {sticker}.", 404
-
-    prefix = f"rolls/{folder}/"
-    s3 = boto3.client('s3', aws_access_key_id=S3_ACCESS_KEY_ID, aws_secret_access_key=S3_SECRET_ACCESS_KEY, endpoint_url=S3_ENDPOINT_URL, config=Config(signature_version='s3v4'))
-    result = s3.list_objects_v2(Bucket=B2_BUCKET_NAME, Prefix=prefix)
-    image_files = [obj["Key"] for obj in result.get("Contents", []) if obj["Key"].lower().endswith(('.jpg', '.jpeg', '.png'))]
-    image_urls = [(f, generate_signed_url(f)) for f in image_files]
-
-    if request.method == 'POST':
-        total_price = 0
-        selections = []
-
-        for filename, url in image_urls:
-            if request.form.get(f"select_{filename}"):
-                size = request.form.get(f"size_{filename}")
-                paper = request.form.get(f"paper_{filename}")
-                border = request.form.get(f"border_{filename}")
-
-                if size == "10x15" and paper == "Budget Semigloss":
-                    price = 0.5
-                elif size in ["10x15", "A6"]:
-                    price = 1.5
-                elif size == "A5":
-                    price = 3
-                elif size == "A4":
-                    price = 6
-                elif size == "A3":
-                    price = 12
-                else:
-                    price = 0
-
-                total_price += price
-                selections.append({
-                    "filename": filename,
-                    "size": size,
-                    "paper": paper,
-                    "border": border,
-                    "price": price
-                })
-
-        client_name = record['fields'].get('Client Name', 'Unknown')
-        client_email = record['fields'].get('Client Email', 'Unknown')
-
-        body = f"Client: {client_name}
-"
-        body += f"Email: {client_email}
-"
-        body += f"Roll Number: {sticker}
-"
-        body += "
-Order:
-"
-
-        for item in selections:
-            body += f"- {item['filename']} | {item['size']} | {item['paper']} | Border: {item['border']} | €{item['price']}
-"
-        body += f"
-Total: €{total_price}"
-
-        send_email("filmlab@gilplaquet.com", f"Print Order for Roll {sticker}", body)
-
-        return f"Order submitted successfully. Total: €{total_price}"
-
-    return render_template_string("""...full HTML form omitted for brevity...""", sticker=sticker, image_urls=image_urls)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
