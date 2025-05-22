@@ -267,5 +267,6 @@ def print_order_details(sticker, selected_photos=None):
     </body>
     </html>
     """, sticker=sticker, image_urls=image_urls, size_options=size_options, paper_options=paper_options, total_price=total_price)
-    if __name__ == '__main__':
+
+if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
