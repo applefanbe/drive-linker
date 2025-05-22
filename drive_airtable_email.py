@@ -130,6 +130,14 @@ def list_roll_folders(prefix="rolls/"):
             folders.add(parts[1])
     return sorted(folders)
 
+def find_folder_by_suffix(suffix):
+    folders = list_roll_folders()
+    suffix_str = str(suffix).zfill(6)
+    for name in folders:
+        if name.endswith(suffix_str):
+            return name
+    return None
+
 # === Main ===
 def main():
     log("🚀 Script triggered.")
@@ -209,13 +217,6 @@ def gallery(sticker):
     if request.method == "POST":
         if request.form.get("password") != expected_password:
             return "Incorrect password.", 403
-
-        def find_folder_by_suffix(suffix):
-            folders = list_roll_folders()
-            for name in folders:
-                if name.endswith(suffix.zfill(6)):
-                    return name
-            return None
 
         folder = find_folder_by_suffix(sticker)
         if not folder:
@@ -300,6 +301,7 @@ def gallery(sticker):
               <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; height: auto; margin-bottom: 20px;">
             </div>
             <a class="download" href="{{ zip_url }}">Download All (ZIP)</a>
+            <a class="download" href="/print-order/{{ sticker }}">Order Prints</a>
             <h1>Roll {{ sticker }}</h1>
             <div class="gallery">
               {% for url in image_urls %}
@@ -382,6 +384,243 @@ def gallery(sticker):
     </body>
     </html>
     """, sticker=sticker)
+
+@app.route('/print-order/<sticker>', methods=['GET', 'POST'])
+def print_order(sticker):
+    record = find_airtable_record(sticker)
+    if not record:
+        return "Roll not found.", 404
+
+    folder = find_folder_by_suffix(sticker)
+    if not folder:
+        return f"No folder found for sticker {sticker}.", 404
+
+    prefix = f"rolls/{folder}/"
+    s3 = boto3.client(
+        's3',
+        aws_access_key_id=S3_ACCESS_KEY_ID,
+        aws_secret_access_key=S3_SECRET_ACCESS_KEY,
+        endpoint_url=S3_ENDPOINT_URL,
+        config=Config(signature_version='s3v4')
+    )
+    result = s3.list_objects_v2(Bucket=B2_BUCKET_NAME, Prefix=prefix)
+    image_files = [obj["Key"] for obj in result.get("Contents", []) if obj["Key"].lower().endswith(('.jpg', '.jpeg', '.png'))]
+
+    if request.method == "POST":
+        selected_files = request.form.getlist("selected_images")
+        size = request.form.get("size")
+        paper = request.form.get("paper")
+        include_border = "border" in request.form
+
+        price_map = { "10x15": 1.0, "13x18": 2.0, "20x30": 5.0 }
+        base_price = price_map.get(size, 0)
+        extra = 0.0
+        if paper == "Matte":
+            extra = 0.5
+        price_per_print = base_price + extra
+        total_price = price_per_print * len(selected_files) if selected_files else 0
+
+        subject = f"Print Order for Roll {sticker}"
+        body = ""
+        body += f"Roll: {sticker}\n"
+        email = record['fields'].get('Client Email')
+        if email:
+            body += f"Client email: {email}\n"
+        client_name = record['fields'].get('Client Name')
+        if client_name:
+            body += f"Client name: {client_name}\n"
+        body += "Selected images:\n"
+        for file in selected_files:
+            filename = file.split("/")[-1]
+            body += f" - {filename}\n"
+        body += f"Print size: {size}\n"
+        body += f"Paper type: {paper}\n"
+        body += f"Include scan border: {'Yes' if include_border else 'No'}\n"
+        body += f"Total prints: {len(selected_files)}\n"
+        body += f"Total price: €{total_price:.2f}\n"
+
+        send_email("filmlab@gilplaquet.com", subject, body)
+        log(f"🖨️ Print order email sent for roll {sticker} with {len(selected_files)} prints")
+
+        return render_template_string("""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Print Order Submitted – Roll {{ sticker }}</title>
+          <style>
+            body {
+              font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+              background-color: #ffffff;
+              color: #333333;
+              margin: 0;
+              padding: 0;
+            }
+            .container {
+              max-width: 600px;
+              margin: 100px auto;
+              padding: 20px;
+              text-align: center;
+            }
+            img {
+              max-width: 150px;
+              height: auto;
+              margin-bottom: 20px;
+            }
+            h2 {
+              font-size: 1.8em;
+              margin-bottom: 0.5em;
+            }
+            p {
+              font-size: 1em;
+              margin-bottom: 1.5em;
+            }
+            a.button {
+              display: inline-block;
+              padding: 10px 20px;
+              border: 2px solid #333;
+              border-radius: 4px;
+              text-decoration: none;
+              color: #333;
+              font-weight: bold;
+              transition: background-color 0.3s ease, color 0.3s ease;
+            }
+            a.button:hover {
+              background-color: #333;
+              color: #fff;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo">
+            <h2>Thank you!</h2>
+            <p>Your print order for Roll {{ sticker }} has been submitted successfully.</p>
+            <a class="button" href="{{ url_for('gallery', sticker=sticker) }}">Back to Gallery</a>
+          </div>
+        </body>
+        </html>
+        """, sticker=sticker)
+
+    images = []
+    for f in image_files:
+        filename = f.split("/")[-1]
+        images.append({"url": generate_signed_url(f), "filename": filename, "key": f})
+
+    return render_template_string("""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Order Prints – Roll {{ sticker }}</title>
+      <style>
+        body {
+          font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+          background-color: #ffffff;
+          color: #333333;
+          margin: 0;
+          padding: 0;
+        }
+        .container {
+          max-width: 960px;
+          margin: 0 auto;
+          padding: 40px 20px;
+          text-align: center;
+        }
+        h1 {
+          font-size: 2em;
+          margin-bottom: 0.5em;
+        }
+        .gallery {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+          gap: 10px;
+          margin: 20px 0;
+        }
+        .gallery div {
+          text-align: center;
+        }
+        .gallery img {
+          width: 100%;
+          height: auto;
+          display: block;
+          border-radius: 8px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+          margin-bottom: 5px;
+        }
+        .options {
+          margin: 20px 0;
+          text-align: left;
+          display: inline-block;
+          text-align: left;
+        }
+        .options label {
+          display: block;
+          margin: 0.5em 0;
+        }
+        input[type="checkbox"] {
+          margin-right: 8px;
+        }
+        select, button {
+          padding: 8px 12px;
+          font-size: 1em;
+          margin-top: 5px;
+          margin-bottom: 15px;
+        }
+        button {
+          border: 2px solid #333;
+          border-radius: 4px;
+          background-color: #fff;
+          color: #333;
+          cursor: pointer;
+          transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        button:hover {
+          background-color: #333;
+          color: #fff;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div>
+          <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; height: auto; margin-bottom: 20px;">
+        </div>
+        <h1>Order Prints – Roll {{ sticker }}</h1>
+        <p>Select the images you want printed, choose the print options, and submit your order.</p>
+        <form method="POST">
+          <div class="gallery">
+            {% for image in images %}
+              <div>
+                <img src="{{ image.url }}" alt="{{ image.filename }}">
+                <label><input type="checkbox" name="selected_images" value="{{ image.key }}"> {{ image.filename }}</label>
+              </div>
+            {% endfor %}
+          </div>
+          <div class="options">
+            <label>Print size:
+              <select name="size">
+                <option value="10x15">10x15 cm</option>
+                <option value="13x18">13x18 cm</option>
+                <option value="20x30">20x30 cm</option>
+              </select>
+            </label>
+            <label>Paper type:
+              <select name="paper">
+                <option value="Glossy">Glossy</option>
+                <option value="Matte">Matte</option>
+              </select>
+            </label>
+            <label><input type="checkbox" name="border"> Include scan border</label>
+          </div>
+          <button type="submit">Submit Order</button>
+        </form>
+      </div>
+    </body>
+    </html>
+    """, sticker=sticker, images=images)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
