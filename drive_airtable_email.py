@@ -30,6 +30,9 @@ B2_BUCKET_NAME = os.getenv("B2_BUCKET_NAME")
 
 app = Flask(__name__)
 
+from print_order import print_order_blueprint
+app.register_blueprint(print_order_blueprint, url_prefix='/order')
+
 # === S3-Compatible Signed URL ===
 def generate_signed_url(file_path, expires_in=604800):
     s3 = boto3.client(
