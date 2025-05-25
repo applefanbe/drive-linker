@@ -428,36 +428,37 @@ def order_page(sticker):
           padding: 0;
         }
         .container {
-          max-width: 960px;
+          max-width: 1280px;
           margin: 0 auto;
           padding: 40px 20px;
           text-align: center;
         }
         h1 {
           font-size: 2em;
-          margin-bottom: 1em;
+          margin: 1em 0;
         }
         form {
           margin-top: 30px;
         }
         .grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-          gap: 10px;
+          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+          gap: 12px;
         }
         .grid-item {
           border: 1px solid #eee;
           border-radius: 6px;
-          padding: 10px;
+          padding: 8px;
         }
         .grid-item img {
           width: 100%;
           height: auto;
           display: block;
-          margin-bottom: 10px;
+          margin-bottom: 8px;
+          border-radius: 4px;
         }
         button {
-          margin-top: 20px;
+          margin-top: 30px;
           padding: 12px 24px;
           font-size: 1em;
           border: 2px solid #333;
@@ -466,15 +467,34 @@ def order_page(sticker):
           cursor: pointer;
           border-radius: 4px;
         }
-        button:hover {
+        button:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+        button:hover:enabled {
           background: #333;
           color: #fff;
         }
       </style>
+      <script>
+        function updateSubmitState() {
+          const checked = document.querySelectorAll('input[name="selected_images"]:checked').length;
+          document.getElementById('nextButton').disabled = checked === 0;
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+          document.querySelectorAll('input[name="selected_images"]').forEach(input => {
+            input.addEventListener('change', updateSubmitState);
+          });
+          updateSubmitState();
+        });
+      </script>
     </head>
     <body>
       <div class="container">
-        <h1>Select Prints – Roll {{ sticker }}</h1>
+        <div>
+          <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; margin-bottom: 20px;">
+        </div>
+        <h1>Select Photos for Print – Roll {{ sticker }}</h1>
         <form method="POST" action="/roll/{{ sticker }}/submit-order">
           <div class="grid">
             {% for url in image_urls %}
@@ -484,7 +504,7 @@ def order_page(sticker):
               </div>
             {% endfor %}
           </div>
-          <button type="submit">Next</button>
+          <button id="nextButton" type="submit">Next</button>
         </form>
       </div>
     </body>
