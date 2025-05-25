@@ -300,6 +300,7 @@ def gallery(sticker):
               <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; height: auto; margin-bottom: 20px;">
             </div>
             <a class="download" href="{{ zip_url }}">Download All (ZIP)</a>
+            <a class="download" href="/roll/{{ sticker }}/order">Order Prints</a>
             <h1>Roll {{ sticker }}</h1>
             <div class="gallery">
               {% for url in image_urls %}
@@ -382,6 +383,172 @@ def gallery(sticker):
     </body>
     </html>
     """, sticker=sticker)
+
+@app.route('/roll/<sticker>/order', methods=['GET'])
+def order_page(sticker):
+    record = find_airtable_record(sticker)
+    if not record:
+        return "Roll not found.", 404
+
+    def find_folder_by_suffix(suffix):
+        folders = list_roll_folders()
+        for name in folders:
+            if name.endswith(suffix.zfill(6)):
+                return name
+        return None
+
+    folder = find_folder_by_suffix(sticker)
+    if not folder:
+        return f"No folder found for sticker {sticker}.", 404
+
+    prefix = f"rolls/{folder}/"
+    s3 = boto3.client(
+        's3',
+        aws_access_key_id=S3_ACCESS_KEY_ID,
+        aws_secret_access_key=S3_SECRET_ACCESS_KEY,
+        endpoint_url=S3_ENDPOINT_URL,
+        config=Config(signature_version='s3v4')
+    )
+    result = s3.list_objects_v2(Bucket=B2_BUCKET_NAME, Prefix=prefix)
+    image_files = [obj["Key"] for obj in result.get("Contents", []) if obj["Key"].lower().endswith(('.jpg', '.jpeg', '.png'))]
+    image_urls = [generate_signed_url(f) for f in image_files]
+
+    return render_template_string("""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Select Prints – Roll {{ sticker }}</title>
+      <style>
+        body {
+          font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+          background-color: #ffffff;
+          color: #333333;
+          margin: 0;
+          padding: 0;
+        }
+        .container {
+          max-width: 960px;
+          margin: 0 auto;
+          padding: 40px 20px;
+          text-align: center;
+        }
+        h1 {
+          font-size: 2em;
+          margin-bottom: 1em;
+        }
+        form {
+          margin-top: 30px;
+        }
+        .grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+          gap: 10px;
+        }
+        .grid-item {
+          border: 1px solid #eee;
+          border-radius: 6px;
+          padding: 10px;
+        }
+        .grid-item img {
+          width: 100%;
+          height: auto;
+          display: block;
+          margin-bottom: 10px;
+        }
+        button {
+          margin-top: 20px;
+          padding: 12px 24px;
+          font-size: 1em;
+          border: 2px solid #333;
+          background: #fff;
+          color: #333;
+          cursor: pointer;
+          border-radius: 4px;
+        }
+        button:hover {
+          background: #333;
+          color: #fff;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Select Prints – Roll {{ sticker }}</h1>
+        <form method="POST" action="/roll/{{ sticker }}/submit-order">
+          <div class="grid">
+            {% for url in image_urls %}
+              <div class="grid-item">
+                <img src="{{ url }}" alt="Scan {{ loop.index }}">
+                <input type="checkbox" name="selected_images" value="{{ url }}">
+              </div>
+            {% endfor %}
+          </div>
+          <button type="submit">Next</button>
+        </form>
+      </div>
+    </body>
+    </html>
+    """, sticker=sticker, image_urls=image_urls)
+
+@app.route('/roll/<sticker>/submit-order', methods=['POST'])
+def submit_order(sticker):
+    selected_images = request.form.getlist("selected_images")
+    
+    if not selected_images:
+        return "No images selected.", 400
+
+    return render_template_string("""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Confirm Selection – Roll {{ sticker }}</title>
+      <style>
+        body {
+          font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+          background-color: #ffffff;
+          color: #333333;
+          margin: 0;
+          padding: 0;
+        }
+        .container {
+          max-width: 960px;
+          margin: 0 auto;
+          padding: 40px 20px;
+          text-align: center;
+        }
+        h1 {
+          font-size: 2em;
+          margin-bottom: 1em;
+        }
+        .grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+          gap: 10px;
+          margin-top: 30px;
+        }
+        .grid-item img {
+          width: 100%;
+          height: auto;
+          border-radius: 6px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Confirm Your Print Selection</h1>
+        <p>You selected {{ selected_images|length }} image{{ '' if selected_images|length == 1 else 's' }}:</p>
+        <div class="grid">
+          {% for url in selected_images %}
+            <div class="grid-item"><img src="{{ url }}" alt="Selected Image {{ loop.index }}"></div>
+          {% endfor %}
+        </div>
+        <p style="margin-top: 40px;">(Print size & paper options coming next...)</p>
+      </div>
+    </body>
+    </html>
+    """, sticker=sticker, selected_images=selected_images)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
