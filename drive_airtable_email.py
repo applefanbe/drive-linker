@@ -494,7 +494,6 @@ def order_page(sticker):
 @app.route('/roll/<sticker>/submit-order', methods=['POST'])
 def submit_order(sticker):
     selected_images = request.form.getlist("selected_images")
-    
     if not selected_images:
         return "No images selected.", 400
 
@@ -503,7 +502,7 @@ def submit_order(sticker):
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>Confirm Selection – Roll {{ sticker }}</title>
+      <title>Print Options – Roll {{ sticker }}</title>
       <style>
         body {
           font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -518,33 +517,132 @@ def submit_order(sticker):
           padding: 40px 20px;
           text-align: center;
         }
-        h1 {
-          font-size: 2em;
-          margin-bottom: 1em;
-        }
         .grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-          gap: 10px;
-          margin-top: 30px;
+          gap: 20px;
         }
-        .grid-item img {
+        .card {
+          border: 1px solid #ddd;
+          border-radius: 8px;
+          padding: 10px;
+        }
+        .card img {
           width: 100%;
           height: auto;
-          border-radius: 6px;
+          border-radius: 4px;
+          margin-bottom: 10px;
+        }
+        select, label {
+          display: block;
+          margin: 5px auto;
+        }
+        button {
+          margin-top: 30px;
+          padding: 12px 24px;
+          font-size: 1em;
+          border: 2px solid #333;
+          background: #fff;
+          color: #333;
+          cursor: pointer;
+          border-radius: 4px;
+        }
+        button:hover {
+          background: #333;
+          color: #fff;
         }
       </style>
+      <script>
+        function updatePrice() {
+          const cards = document.querySelectorAll('.card');
+          let total = 0;
+          cards.forEach(card => {
+            const size = card.querySelector('[name$="[size]"]').value;
+            let price = 0;
+
+            if (size === "10x15") price = 0.5;
+            else if (size === "A6") price = 1.5;
+            else if (size === "A5") price = 3;
+            else if (size === "A4") price = 6;
+            else if (size === "A3") price = 12;
+
+            total += price;
+          });
+          document.getElementById('totalPrice').textContent = "Total: €" + total.toFixed(2);
+        }
+
+        function updatePaperOptions(selectElement) {
+          const size = selectElement.value;
+          const paperSelect = selectElement.closest('.card').querySelector('.paper-select');
+
+          if (size === "10x15") {
+            paperSelect.innerHTML = `
+              <option value="Glossy">Glossy</option>
+              <option value="Matte">Matte</option>
+              <option value="Luster">Luster</option>
+            `;
+          } else {
+            paperSelect.innerHTML = `
+              <option value="Luster Semigloss">Luster Semigloss</option>
+              <option value="Matte">Matte</option>
+            `;
+          }
+
+          updatePrice();
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+          document.querySelectorAll('.card').forEach(card => {
+            updatePaperOptions(card.querySelector('[name$="[size]"]'));
+          });
+          document.querySelectorAll('select').forEach(select => {
+            select.addEventListener('change', updatePrice);
+          });
+          updatePrice();
+        });
+      </script>
     </head>
     <body>
       <div class="container">
-        <h1>Confirm Your Print Selection</h1>
-        <p>You selected {{ selected_images|length }} image{{ '' if selected_images|length == 1 else 's' }}:</p>
-        <div class="grid">
-          {% for url in selected_images %}
-            <div class="grid-item"><img src="{{ url }}" alt="Selected Image {{ loop.index }}"></div>
-          {% endfor %}
-        </div>
-        <p style="margin-top: 40px;">(Print size & paper options coming next...)</p>
+        <h1>Choose Print Options</h1>
+        <form method="POST" action="/roll/{{ sticker }}/finalize-order">
+          <div class="grid">
+            {% for url in selected_images %}
+              <div class="card">
+                <img src="{{ url }}" alt="Photo {{ loop.index }}">
+                <input type="hidden" name="order[{{ loop.index0 }}][url]" value="{{ url }}">
+
+                <label>Size:
+                  <select name="order[{{ loop.index0 }}][size]" onchange="updatePaperOptions(this)">
+                    <option value="10x15">10x15</option>
+                    <option value="A6">A6</option>
+                    <option value="A5">A5</option>
+                    <option value="A4">A4</option>
+                    <option value="A3">A3</option>
+                  </select>
+                </label>
+
+                <label>Paper:
+                  <select name="order[{{ loop.index0 }}][paper]" class="paper-select">
+                    <option value="Glossy">Glossy</option>
+                    <option value="Matte">Matte</option>
+                    <option value="Luster">Luster</option>
+                  </select>
+                </label>
+
+                <label>Print Scan Border:
+                  <select name="order[{{ loop.index0 }}][border]">
+                    <option value="No" selected>No</option>
+                    <option value="Yes">Yes</option>
+                  </select>
+                </label>
+              </div>
+            {% endfor %}
+          </div>
+
+          <p id="totalPrice" style="margin-top: 20px; font-weight: bold;"></p>
+          <button type="submit">Send Order</button>
+        </form>
       </div>
     </body>
     </html>
