@@ -435,70 +435,24 @@ def order_page(sticker):
 
     if not password_ok:
         return render_template_string("""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Enter Password – Roll {{ sticker }}</title>
-  <style>
-    body {
-      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-      background-color: #ffffff;
-      color: #333333;
-      margin: 0;
-      padding: 0;
-    }
-    .container {
-      max-width: 400px;
-      margin: 100px auto;
-      padding: 20px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      text-align: center;
-    }
-    img {
-      max-width: 200px;
-      height: auto;
-      margin-bottom: 20px;
-    }
-    h2 {
-      font-size: 1.5em;
-      margin-bottom: 1em;
-    }
-    input[type="password"] {
-      width: 100%;
-      padding: 10px;
-      font-size: 1em;
-      margin-bottom: 1em;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-    button {
-      padding: 10px 20px;
-      font-size: 1em;
-      border: 2px solid #333;
-      border-radius: 4px;
-      background-color: #fff;
-      color: #333;
-      cursor: pointer;
-      transition: background-color 0.3s ease, color 0.3s ease;
-    }
-    button:hover {
-      background-color: #333;
-      color: #fff;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo">
-    <h2>Enter password to access Roll {{ sticker }}</h2>
-    <form method="POST">
-      <input type="password" name="password" placeholder="Password" required>
-      <button type="submit">Submit</button>
-    </form>
-  </div>
-</body>
-</html>""", sticker=sticker)
+<html><head><meta charset="UTF-8"><title>Enter Password – Roll {{ sticker }}</title>
+<style>
+body { font-family: Helvetica, sans-serif; background: #fff; color: #333; }
+.container { max-width: 400px; margin: 100px auto; padding: 20px; text-align: center; border: 1px solid #ddd; border-radius: 8px; }
+input[type="password"] { width: 100%; padding: 10px; margin-bottom: 1em; border: 1px solid #ccc; border-radius: 4px; }
+button { padding: 10px 20px; border: 2px solid #333; border-radius: 4px; background: #fff; color: #333; cursor: pointer; }
+button:hover { background: #333; color: #fff; }
+</style>
+</head><body>
+<div class="container">
+  <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width:200px; margin-bottom:20px;">
+  <h2>Enter password to access Roll {{ sticker }}</h2>
+  <form method="POST">
+    <input type="password" name="password" placeholder="Password" required>
+    <button type="submit">Submit</button>
+  </form>
+</div>
+</body></html>""", sticker=sticker)
 
     def find_folder_by_suffix(suffix):
         folders = list_roll_folders()
@@ -523,6 +477,8 @@ def order_page(sticker):
     image_files = [obj["Key"] for obj in result.get("Contents", []) if obj["Key"].lower().endswith(('.jpg', '.jpeg', '.png'))]
     image_urls = [generate_signed_url(f) for f in image_files]
 
+    show_whole_roll_buttons = record['fields'].get("Size") == "35mm"
+
     return render_template_string("""
 <!DOCTYPE html>
 <html>
@@ -531,9 +487,9 @@ def order_page(sticker):
   <title>Select Prints – Roll {{ sticker }}</title>
   <style>
     body {
-      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-family: Helvetica, sans-serif;
       background-color: #ffffff;
-      color: #333333;
+      color: #333;
       margin: 0;
       padding: 0;
     }
@@ -562,8 +518,8 @@ def order_page(sticker):
     }
     button {
       margin: 10px;
-      padding: 12px 24px;
-      font-size: 1em;
+      padding: 10px 18px;
+      font-size: 0.95em;
       border: 2px solid #333;
       background: #fff;
       color: #333;
@@ -578,7 +534,7 @@ def order_page(sticker):
       background: #333;
       color: #fff;
     }
-    button + p.note {
+    .note {
       font-size: 0.95em;
       margin-top: 10px;
       color: #666;
@@ -599,21 +555,22 @@ def order_page(sticker):
   </style>
   <script>
     function submitWholeRoll(paperType) {
-      if (!confirm(`This will print the entire roll on 10x15 ${paperType} paper. Each print costs €0.75. If you select 20 or more prints, the total is capped at €15. Continue?`)) {
+      if (!confirm(`This will print the entire roll on 10x15 ${paperType} paper. Each print normally costs €0.75. As you've selected 20 or more prints, the total is capped at €15. Continue?`)) {
         return;
       }
       const form = document.createElement('form');
       form.method = 'POST';
       form.action = `/roll/{{ sticker }}/submit-order`;
 
-      {% for url in image_urls %}
+      document.querySelectorAll('input[name="selected_images"]').forEach((checkbox, index) => {
+        const url = checkbox.value;
         form.innerHTML += `
-          <input type="hidden" name="order[{{ loop.index0 }}][url]" value="{{ url }}">
-          <input type="hidden" name="order[{{ loop.index0 }}][size]" value="10x15">
-          <input type="hidden" name="order[{{ loop.index0 }}][paper]" value="${paperType}">
-          <input type="hidden" name="order[{{ loop.index0 }}][border]" value="No">
+          <input type="hidden" name="order[${index}][url]" value="${url}">
+          <input type="hidden" name="order[${index}][size]" value="10x15">
+          <input type="hidden" name="order[${index}][paper]" value="${paperType}">
+          <input type="hidden" name="order[${index}][border]" value="No">
         `;
-      {% endfor %}
+      });
 
       document.body.appendChild(form);
       form.submit();
@@ -639,12 +596,14 @@ def order_page(sticker):
     </div>
     <a class="download" href="/roll/{{ sticker }}">← Back to Gallery</a>
     <h1>Select Photos for Print – Roll {{ sticker }}</h1>
-    <div style="margin-top: 20px;">
+    {% if show_whole_roll_buttons %}
       <button onclick="submitWholeRoll('Matte')">Print Whole Roll on 10x15 Matte</button>
       <button onclick="submitWholeRoll('Glossy')">Print Whole Roll on 10x15 Glossy</button>
       <button onclick="submitWholeRoll('Luster')">Print Whole Roll on 10x15 Luster</button>
-      <p class="note">Or select specific pictures to print below</p>
-    </div>
+    {% endif %}
+    <button onclick="document.querySelector('form').submit();">Order Selected Prints</button>
+    <p class="note">Or select specific pictures to print below</p>
+
     <form method="POST" action="/roll/{{ sticker }}/submit-order">
       <div class="grid">
         {% for url in image_urls %}
@@ -654,17 +613,43 @@ def order_page(sticker):
           </div>
         {% endfor %}
       </div>
-      <button id="nextButton" type="submit">Next</button>
+      <button id="nextButton" type="submit">Order Selected Prints</button>
     </form>
   </div>
 </body>
 </html>
-""", sticker=sticker, image_urls=image_urls)
+""", sticker=sticker, image_urls=image_urls, show_whole_roll_buttons=show_whole_roll_buttons)
 
 @app.route('/roll/<sticker>/submit-order', methods=['POST'])
 def submit_order(sticker):
-    selected_images = request.form.getlist("selected_images")
-    if not selected_images:
+    record = find_airtable_record(sticker)
+    if not record:
+        return "Roll not found.", 404
+
+    submitted_order = []
+    if 'order[0][url]' in request.form:
+        # Structured order form (whole roll or detailed post)
+        for key in request.form:
+            if key.startswith('order[') and key.endswith('][url]'):
+                index = key.split('[')[1].split(']')[0]
+                submitted_order.append({
+                    'url': request.form.get(f'order[{index}][url]'),
+                    'size': request.form.get(f'order[{index}][size]', '10x15'),
+                    'paper': request.form.get(f'order[{index}][paper]', 'Glossy'),
+                    'border': request.form.get(f'order[{index}][border]', 'No')
+                })
+    else:
+        # Fallback: only selected_images
+        urls = request.form.getlist("selected_images")
+        for url in urls:
+            submitted_order.append({
+                'url': url,
+                'size': '10x15',
+                'paper': 'Glossy',
+                'border': 'No'
+            })
+
+    if not submitted_order:
         return "No images selected.", 400
 
     return render_template_string("""
@@ -672,151 +657,92 @@ def submit_order(sticker):
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>Print Options – Roll {{ sticker }}</title>
+      <title>Confirm Order – Roll {{ sticker }}</title>
       <style>
-        body {
-          font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-          background-color: #ffffff;
-          color: #333333;
-          margin: 0;
-          padding: 0;
-        }
-        .container {
-          max-width: 960px;
-          margin: 0 auto;
-          padding: 40px 20px;
-          text-align: center;
-        }
-        .grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-          gap: 20px;
-        }
-        .card {
-          border: 1px solid #ddd;
-          border-radius: 8px;
-          padding: 10px;
-        }
-        .card img {
-          width: 100%;
-          height: auto;
-          border-radius: 4px;
-          margin-bottom: 10px;
-        }
-        select, label {
-          display: block;
-          margin: 5px auto;
-        }
-        button {
-          margin-top: 30px;
-          padding: 12px 24px;
-          font-size: 1em;
-          border: 2px solid #333;
-          background: #fff;
-          color: #333;
-          cursor: pointer;
-          border-radius: 4px;
-        }
-        button:hover {
-          background: #333;
-          color: #fff;
-        }
+        body { font-family: Helvetica, sans-serif; background: #fff; color: #333; margin: 0; padding: 0; }
+        .container { max-width: 960px; margin: 0 auto; padding: 40px 20px; text-align: center; }
+        h1 { margin-bottom: 1em; }
+        .controls { margin-bottom: 30px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+        .grid-item { border: 1px solid #ccc; border-radius: 6px; padding: 12px; text-align: center; }
+        .grid-item img { max-height: 180px; width: auto; margin-bottom: 10px; }
+        select, input[type="text"] { width: 100%; padding: 6px; margin-top: 6px; margin-bottom: 10px; }
+        button { margin-top: 20px; padding: 10px 20px; font-size: 1em; border: 2px solid #333; border-radius: 4px; background: #fff; cursor: pointer; }
+        button:hover { background: #333; color: #fff; }
       </style>
       <script>
-        function updatePrice() {
-          const cards = document.querySelectorAll('.card');
-          let total = 0;
-          cards.forEach(card => {
-            const size = card.querySelector('[name$="[size]"]').value;
-            let price = 0;
+        function applyToAll() {
+          const size = document.getElementById('applySize').value;
+          const paper = document.getElementById('applyPaper').value;
+          const border = document.getElementById('applyBorder').value;
 
-            if (size === "10x15") price = 0.5;
-            else if (size === "A6") price = 1.5;
-            else if (size === "A5") price = 3;
-            else if (size === "A4") price = 6;
-            else if (size === "A3") price = 12;
-
-            total += price;
+          document.querySelectorAll('[data-row]').forEach(row => {
+            row.querySelector('.size').value = size;
+            row.querySelector('.paper').value = paper;
+            row.querySelector('.border').value = border;
           });
-          document.getElementById('totalPrice').textContent = "Total: €" + total.toFixed(2);
         }
-
-        function updatePaperOptions(selectElement) {
-          const size = selectElement.value;
-          const paperSelect = selectElement.closest('.card').querySelector('.paper-select');
-
-          if (size === "10x15") {
-            paperSelect.innerHTML = `
-              <option value="Glossy">Glossy</option>
-              <option value="Matte">Matte</option>
-              <option value="Luster">Luster</option>
-            `;
-          } else {
-            paperSelect.innerHTML = `
-              <option value="Luster Semigloss">Luster Semigloss</option>
-              <option value="Matte">Matte</option>
-            `;
-          }
-
-          updatePrice();
-        }
-
-        document.addEventListener("DOMContentLoaded", () => {
-          document.querySelectorAll('.card').forEach(card => {
-            updatePaperOptions(card.querySelector('[name$="[size]"]'));
-          });
-          document.querySelectorAll('select').forEach(select => {
-            select.addEventListener('change', updatePrice);
-          });
-          updatePrice();
-        });
       </script>
     </head>
     <body>
       <div class="container">
-        <h1>Choose Print Options</h1>
+        <h1>Confirm Your Print Order – Roll {{ sticker }}</h1>
+        <div class="controls">
+          <label>Size: <select id="applySize">
+            <option>10x15</option>
+            <option>A6</option>
+            <option>A5</option>
+            <option>A4</option>
+            <option>A3</option>
+          </select></label>
+          <label>Paper: <select id="applyPaper">
+            <option>Glossy</option>
+            <option>Matte</option>
+            <option>Luster</option>
+          </select></label>
+          <label>Border: <select id="applyBorder">
+            <option>No</option>
+            <option>Yes</option>
+          </select></label>
+          <button onclick="applyToAll()">Apply to All</button>
+        </div>
         <form method="POST" action="/roll/{{ sticker }}/finalize-order">
           <div class="grid">
-            {% for url in selected_images %}
-              <div class="card">
-                <img src="{{ url }}" alt="Photo {{ loop.index }}">
-                <input type="hidden" name="order[{{ loop.index0 }}][url]" value="{{ url }}">
-
+            {% for item in submitted_order %}
+              <div class="grid-item" data-row>
+                <img src="{{ item.url }}">
+                <input type="hidden" name="order[{{ loop.index0 }}][url]" value="{{ item.url }}">
                 <label>Size:
-                  <select name="order[{{ loop.index0 }}][size]" onchange="updatePaperOptions(this)">
-                    <option value="10x15">10x15</option>
-                    <option value="A6">A6</option>
-                    <option value="A5">A5</option>
-                    <option value="A4">A4</option>
-                    <option value="A3">A3</option>
+                  <select name="order[{{ loop.index0 }}][size]" class="size">
+                    <option {% if item.size == '10x15' %}selected{% endif %}>10x15</option>
+                    <option {% if item.size == 'A6' %}selected{% endif %}>A6</option>
+                    <option {% if item.size == 'A5' %}selected{% endif %}>A5</option>
+                    <option {% if item.size == 'A4' %}selected{% endif %}>A4</option>
+                    <option {% if item.size == 'A3' %}selected{% endif %}>A3</option>
                   </select>
                 </label>
-
                 <label>Paper:
-                  <select name="order[{{ loop.index0 }}][paper]" class="paper-select">
-                    <option value="Glossy">Glossy</option>
-                    <option value="Matte">Matte</option>
-                    <option value="Luster">Luster</option>
+                  <select name="order[{{ loop.index0 }}][paper]" class="paper">
+                    <option {% if item.paper == 'Glossy' %}selected{% endif %}>Glossy</option>
+                    <option {% if item.paper == 'Matte' %}selected{% endif %}>Matte</option>
+                    <option {% if item.paper == 'Luster' %}selected{% endif %}>Luster</option>
                   </select>
                 </label>
-
-                <label>Print Scan Border:
-                  <select name="order[{{ loop.index0 }}][border]">
-                    <option value="No" selected>No</option>
-                    <option value="Yes">Yes</option>
+                <label>Border:
+                  <select name="order[{{ loop.index0 }}][border]" class="border">
+                    <option {% if item.border == 'No' %}selected{% endif %}>No</option>
+                    <option {% if item.border == 'Yes' %}selected{% endif %}>Yes</option>
                   </select>
                 </label>
               </div>
             {% endfor %}
           </div>
-
-          <p id="totalPrice" style="margin-top: 20px; font-weight: bold;"></p>
-          <button type="submit">Send Order</button>
+          <button type="submit">Next</button>
         </form>
       </div>
     </body>
     </html>
-    """, sticker=sticker, selected_images=selected_images)
+    """, sticker=sticker, submitted_order=submitted_order)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
