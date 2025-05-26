@@ -649,7 +649,6 @@ def submit_order(sticker):
 
     submitted_order = []
     if 'order[0][url]' in request.form:
-        # Structured order form (whole roll or detailed post)
         for key in request.form:
             if key.startswith('order[') and key.endswith('][url]'):
                 index = key.split('[')[1].split(']')[0]
@@ -660,7 +659,6 @@ def submit_order(sticker):
                     'border': request.form.get(f'order[{index}][border]', 'No')
                 })
     else:
-        # Fallback: only selected_images
         urls = request.form.getlist("selected_images")
         for url in urls:
             submitted_order.append({
@@ -727,7 +725,7 @@ def submit_order(sticker):
           </select></label>
           <button onclick="applyToAll()">Apply to All</button>
         </div>
-        <form method="POST" action="/roll/{{ sticker }}/finalize-order">
+        <form method="POST" id="orderForm">
           <div class="grid">
             {% for item in submitted_order %}
               <div class="grid-item" data-row>
@@ -749,7 +747,7 @@ def submit_order(sticker):
                     <option {% if item.paper == 'Luster' %}selected{% endif %}>Luster</option>
                   </select>
                 </label>
-                <label>Border:
+                <label>Include Scan Border:
                   <select name="order[{{ loop.index0 }}][border]" class="border">
                     <option {% if item.border == 'No' %}selected{% endif %}>No</option>
                     <option {% if item.border == 'Yes' %}selected{% endif %}>Yes</option>
@@ -758,16 +756,128 @@ def submit_order(sticker):
               </div>
             {% endfor %}
           </div>
-          <button type="submit">Next</button>
+          <button type="submit" formaction="/roll/{{ sticker }}/review-order">Review & Pay</button>
         </form>
       </div>
     </body>
     </html>
     """, sticker=sticker, submitted_order=submitted_order)
 
+@app.route('/roll/<sticker>/review-order', methods=['POST'])
+def review_order(sticker):
+    submitted_order = []
+    total = 0.0
+    count_10x15 = 0
+
+    for key in request.form:
+        if key.startswith('order[') and key.endswith('][url]'):
+            index = key.split('[')[1].split(']')[0]
+            url = request.form.get(f'order[{index}][url]')
+            size = request.form.get(f'order[{index}][size]', '10x15')
+            paper = request.form.get(f'order[{index}][paper]', 'Glossy')
+            border = request.form.get(f'order[{index}][border]', 'No')
+
+            submitted_order.append({
+                'url': url,
+                'size': size,
+                'paper': paper,
+                'border': border
+            })
+
+            if size == '10x15':
+                count_10x15 += 1
+                total += 0.75
+            elif size == 'A6':
+                total += 1.5
+            elif size == 'A5':
+                total += 3.0
+            elif size == 'A4':
+                total += 6.0
+            elif size == 'A3':
+                total += 12.0
+
+    capped_total = min(total, 15.0) if count_10x15 >= 20 else total
+
+    return render_template_string("""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Review Your Order – Roll {{ sticker }}</title>
+        <style>
+            body {
+                font-family: Helvetica, sans-serif;
+                background: #fff;
+                color: #333;
+                padding: 40px;
+                max-width: 960px;
+                margin: auto;
+            }
+            h1 { margin-bottom: 20px; }
+            .grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                gap: 20px;
+            }
+            .item {
+                border: 1px solid #ccc;
+                border-radius: 6px;
+                padding: 10px;
+                text-align: center;
+            }
+            .item img {
+                max-width: 100%;
+                height: auto;
+                border-radius: 4px;
+                margin-bottom: 10px;
+            }
+            .total {
+                font-size: 1.2em;
+                margin-top: 30px;
+            }
+            button {
+                margin-top: 20px;
+                padding: 12px 24px;
+                font-size: 1em;
+                background: black;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+            button:hover {
+                background: #333;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Review Your Print Order – Roll {{ sticker }}</h1>
+        <form method="POST" action="/roll/{{ sticker }}/finalize-order">
+            <div class="grid">
+            {% for item in submitted_order %}
+                <div class="item">
+                    <img src="{{ item.url }}">
+                    <div><strong>Size:</strong> {{ item.size }}</div>
+                    <div><strong>Paper:</strong> {{ item.paper }}</div>
+                    <div><strong>Include Scan Border:</strong> {{ item.border }}</div>
+                    <input type="hidden" name="order[{{ loop.index0 }}][url]" value="{{ item.url }}">
+                    <input type="hidden" name="order[{{ loop.index0 }}][size]" value="{{ item.size }}">
+                    <input type="hidden" name="order[{{ loop.index0 }}][paper]" value="{{ item.paper }}">
+                    <input type="hidden" name="order[{{ loop.index0 }}][border]" value="{{ item.border }}">
+                </div>
+            {% endfor %}
+            </div>
+            <div class="total">
+                Total: €{{ '%.2f' % capped_total }} {% if count_10x15 >= 20 %}(Capped at €15 for 10x15 prints){% endif %}
+            </div>
+            <button type="submit">Pay with Mollie</button>
+        </form>
+    </body>
+    </html>
+    """, sticker=sticker, submitted_order=submitted_order, capped_total=capped_total, count_10x15=count_10x15)
+
 @app.route('/roll/<sticker>/finalize-order', methods=['POST'])
 def finalize_order(sticker):
-    import mollie
     from mollie.api.client import Client as MollieClient
 
     record = find_airtable_record(sticker)
@@ -831,11 +941,7 @@ def finalize_order(sticker):
             }
         })
 
-        client_email = record['fields'].get("Client Email", "")
-        if not client_email or "@" not in client_email:
-            log(f"⚠️ No valid client email found for roll {sticker}")
-            client
-
+        store_print_order_in_roll(sticker, submitted_order, payment.id)
         return redirect(payment.checkout_url)
 
     except Exception as e:
@@ -876,7 +982,7 @@ def thank_you(sticker):
 
 @app.route('/mollie-webhook', methods=['POST'])
 def mollie_webhook():
-    from mollie.api.client import Client as MollieClient  # Correct import
+    from mollie.api.client import Client as MollieClient
 
     mollie_api_key = os.getenv("MOLLIE_API_KEY")
     if not mollie_api_key:
@@ -892,29 +998,29 @@ def mollie_webhook():
     try:
         payment = mollie_client.payments.get(payment_id)
         if not payment.is_paid():
-            return "Payment not completed", 200  # Acknowledge webhook anyway
+            return "Payment not completed", 200
 
-        # Look up Print Order by Mollie ID
-        airtable_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Print%20Orders"
+        # Look up Rolls record by Mollie ID
+        airtable_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
         headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
         formula = f"{{Mollie ID}}='{payment_id}'"
         response = requests.get(airtable_url, headers=headers, params={"filterByFormula": formula})
         records = response.json().get("records", [])
         if not records:
-            return "Print order not found", 404
+            return "Roll not found", 404
 
-        order_record = records[0]
-        fields = order_record["fields"]
-        sticker = fields.get("Sticker")
+        roll_record = records[0]
+        fields = roll_record["fields"]
+        sticker = fields.get("Twin Sticker")
         client_email = fields.get("Client Email")
         client_name = fields.get("Client Name", "Client")
-        submitted_order = json.loads(fields.get("Order JSON", "[]"))
+        submitted_order = json.loads(fields.get("Print Order JSON", "[]"))
 
         # Mark order as Paid
-        update_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Print%20Orders/{order_record['id']}"
-        update_response = requests.patch(update_url, headers=headers, json={"fields": {"Paid": True}})
+        update_url = f"{airtable_url}/{roll_record['id']}"
+        requests.patch(update_url, headers=headers, json={"fields": {"Print Order Paid": True}})
 
-        # Compose confirmation email
+        # Send confirmation email
         email_body = f"<p>Hi {client_name},</p><p>Thank you for your print order. Here’s a summary of what you selected for roll <strong>{sticker}</strong>:</p><ul>"
         for item in submitted_order:
             email_body += f"<li><img src='{item['url']}' width='100'><br>Size: {item['size']}, Paper: {item['paper']}, Include Scan Border: {item['border']}</li>"
