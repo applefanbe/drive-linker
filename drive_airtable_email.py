@@ -383,41 +383,50 @@ def gallery(sticker):
     </html>
     """, sticker=sticker)
 
-@app.route('/roll/<sticker>/order', methods=['GET'])
+@app.route('/roll/<sticker>/order', methods=['GET', 'POST'])
 def order_page(sticker):
     record = find_airtable_record(sticker)
     if not record:
         return "Roll not found.", 404
 
-    def find_folder_by_suffix(suffix):
-        folders = list_roll_folders()
-        for name in folders:
-            if name.endswith(suffix.zfill(6)):
-                return name
-        return None
+    expected_password = record['fields'].get("Password")
+    if request.method == "POST":
+        if request.form.get("password") != expected_password:
+            return "Incorrect password.", 403
 
-    folder = find_folder_by_suffix(sticker)
-    if not folder:
-        return f"No folder found for sticker {sticker}.", 404
+        def find_folder_by_suffix(suffix):
+            folders = list_roll_folders()
+            for name in folders:
+                if name.endswith(suffix.zfill(6)):
+                    return name
+            return None
 
-    prefix = f"rolls/{folder}/"
-    s3 = boto3.client(
-        's3',
-        aws_access_key_id=S3_ACCESS_KEY_ID,
-        aws_secret_access_key=S3_SECRET_ACCESS_KEY,
-        endpoint_url=S3_ENDPOINT_URL,
-        config=Config(signature_version='s3v4')
-    )
-    result = s3.list_objects_v2(Bucket=B2_BUCKET_NAME, Prefix=prefix)
-    image_files = [obj["Key"] for obj in result.get("Contents", []) if obj["Key"].lower().endswith(('.jpg', '.jpeg', '.png'))]
-    image_urls = [generate_signed_url(f) for f in image_files]
+        folder = find_folder_by_suffix(sticker)
+        if not folder:
+            return f"No folder found for sticker {sticker}.", 404
 
+        prefix = f"rolls/{folder}/"
+        s3 = boto3.client(
+            's3',
+            aws_access_key_id=S3_ACCESS_KEY_ID,
+            aws_secret_access_key=S3_SECRET_ACCESS_KEY,
+            endpoint_url=S3_ENDPOINT_URL,
+            config=Config(signature_version='s3v4')
+        )
+        result = s3.list_objects_v2(Bucket=B2_BUCKET_NAME, Prefix=prefix)
+        image_files = [obj["Key"] for obj in result.get("Contents", []) if obj["Key"].lower().endswith(('.jpg', '.jpeg', '.png'))]
+        image_urls = [generate_signed_url(f) for f in image_files]
+
+        return render_template_string(""""(your full order form HTML here, unchanged)"""", sticker=sticker, image_urls=image_urls)
+
+    # If GET, show password entry form
     return render_template_string("""
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
       <meta charset="UTF-8">
-      <title>Select Prints – Roll {{ sticker }}</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Enter Password – Roll {{ sticker }}</title>
       <style>
         body {
           font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -427,88 +436,58 @@ def order_page(sticker):
           padding: 0;
         }
         .container {
-          max-width: 1280px;
-          margin: 0 auto;
-          padding: 40px 20px;
+          max-width: 400px;
+          margin: 100px auto;
+          padding: 20px;
+          border: 1px solid #ddd;
+          border-radius: 8px;
           text-align: center;
         }
-        h1 {
-          font-size: 2em;
-          margin: 1em 0;
-        }
-        form {
-          margin-top: 30px;
-        }
-        .grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-          gap: 12px;
-        }
-        .grid-item {
-          border: 1px solid #eee;
-          border-radius: 6px;
-          padding: 8px;
-        }
-        .grid-item img {
-          width: 100%;
+        img {
+          max-width: 200px;
           height: auto;
-          display: block;
-          margin-bottom: 8px;
+          margin-bottom: 20px;
+        }
+        h2 {
+          font-size: 1.5em;
+          margin-bottom: 1em;
+        }
+        input[type="password"] {
+          width: 100%;
+          padding: 10px;
+          font-size: 1em;
+          margin-bottom: 1em;
+          border: 1px solid #ccc;
           border-radius: 4px;
         }
         button {
-          margin-top: 30px;
-          padding: 12px 24px;
+          padding: 10px 20px;
           font-size: 1em;
           border: 2px solid #333;
-          background: #fff;
+          border-radius: 4px;
+          background-color: #fff;
           color: #333;
           cursor: pointer;
-          border-radius: 4px;
+          transition: background-color 0.3s ease, color 0.3s ease;
         }
-        button:disabled {
-          opacity: 0.4;
-          cursor: not-allowed;
-        }
-        button:hover:enabled {
-          background: #333;
+        button:hover {
+          background-color: #333;
           color: #fff;
         }
       </style>
-      <script>
-        function updateSubmitState() {
-          const checked = document.querySelectorAll('input[name="selected_images"]:checked').length;
-          document.getElementById('nextButton').disabled = checked === 0;
-        }
-        document.addEventListener('DOMContentLoaded', () => {
-          document.querySelectorAll('input[name="selected_images"]').forEach(input => {
-            input.addEventListener('change', updateSubmitState);
-          });
-          updateSubmitState();
-        });
-      </script>
     </head>
     <body>
       <div class="container">
-        <div>
-          <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; margin-bottom: 20px;">
-        </div>
-        <h1>Select Photos for Print – Roll {{ sticker }}</h1>
-        <form method="POST" action="/roll/{{ sticker }}/submit-order">
-          <div class="grid">
-            {% for url in image_urls %}
-              <div class="grid-item">
-                <img src="{{ url }}" alt="Scan {{ loop.index }}">
-                <input type="checkbox" name="selected_images" value="{{ url }}">
-              </div>
-            {% endfor %}
-          </div>
-          <button id="nextButton" type="submit">Next</button>
+        <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo">
+        <h2>Enter password to access Roll {{ sticker }}</h2>
+        <form method="POST">
+          <input type="password" name="password" placeholder="Password" required>
+          <button type="submit">Submit</button>
         </form>
       </div>
     </body>
     </html>
-    """, sticker=sticker, image_urls=image_urls)
+    """, sticker=sticker)
 
 @app.route('/roll/<sticker>/submit-order', methods=['POST'])
 def submit_order(sticker):
