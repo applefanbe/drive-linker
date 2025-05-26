@@ -831,8 +831,10 @@ def finalize_order(sticker):
             }
         })
 
-        client_email = record['fields'].get("Client Email")
-        create_print_order_record(sticker, client_email, submitted_order, payment.id)
+        client_email = record['fields'].get("Client Email", "")
+        if not client_email or "@" not in client_email:
+            log(f"⚠️ No valid client email found for roll {sticker}")
+            client
 
         return redirect(payment.checkout_url)
 
