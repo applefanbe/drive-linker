@@ -565,11 +565,11 @@ def order_page(sticker):
           padding: 8px;
         }
         .grid-item img {
-          width: 100%;
-          height: auto;
+          height: 150px;
+          width: auto;
           display: block;
-          margin-bottom: 8px;
-          border-radius: 4px;
+          margin: 0 auto 8px auto;
+          object-fit: contain;
         }
         button {
           margin-top: 30px;
