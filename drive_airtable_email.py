@@ -1142,11 +1142,11 @@ def mollie_webhook():
         sticker = fields.get("Twin Sticker")
         client_email = fields.get("Client Email")
         client_name = fields.get("Client Name", "Client")
-        submitted_order = json.loads(fields.get("Order JSON", "[]"))
+        submitted_order = json.loads(fields.get("Print Order JSON", "[]"))
 
         # Mark as Paid
         update_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}/{record['id']}"
-        update_response = requests.patch(update_url, headers=headers, json={"fields": {"Paid": True}})
+        update_response = requests.patch(update_url, headers=headers, json={"fields": {"Print Order Paid": True}})
 
         # Calculate pricing breakdown
         type_counter = {}
