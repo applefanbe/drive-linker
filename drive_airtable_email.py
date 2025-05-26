@@ -207,43 +207,34 @@ def gallery(sticker):
         return "Roll not found.", 404
 
     expected_password = record['fields'].get("Password")
-    if request.method == "POST":
-        if request.form.get("password") != expected_password:
-            return "Incorrect password.", 403
+    updated_time = record['fields'].get("Password Updated")
+
+    if not expected_password or not updated_time:
+        return "Missing password data.", 403
+
+    try:
+        password_age = (datetime.utcnow() - datetime.strptime(updated_time, "%Y-%m-%dT%H:%M:%S.%fZ")).total_seconds()
+        if password_age > 604800:
+            return "Password expired.", 403
+    except Exception as e:
+        return f"Invalid password timestamp format: {e}", 403
+
+    if session.get(f"access_{sticker}") == expected_password:
+        password_ok = True
+    elif request.method == "POST" and request.form.get("password") == expected_password:
+        session[f"access_{sticker}"] = expected_password
+        password_ok = True
     else:
-        session[f"access_{sticker}"] = True
+        password_ok = False
 
-        def find_folder_by_suffix(suffix):
-            folders = list_roll_folders()
-            for name in folders:
-                if name.endswith(suffix.zfill(6)):
-                    return name
-            return None
-
-        folder = find_folder_by_suffix(sticker)
-        if not folder:
-            return f"No folder found for sticker {sticker}.", 404
-
-        prefix = f"rolls/{folder}/"
-        s3 = boto3.client(
-            's3',
-            aws_access_key_id=S3_ACCESS_KEY_ID,
-            aws_secret_access_key=S3_SECRET_ACCESS_KEY,
-            endpoint_url=S3_ENDPOINT_URL,
-            config=Config(signature_version='s3v4')
-        )
-        result = s3.list_objects_v2(Bucket=B2_BUCKET_NAME, Prefix=prefix)
-        image_files = [obj["Key"] for obj in result.get("Contents", []) if obj["Key"].lower().endswith(('.jpg', '.jpeg', '.png'))]
-        image_urls = [generate_signed_url(f) for f in image_files]
-        zip_url = generate_signed_url(f"{prefix}Archive.zip")
-
+    if not password_ok:
         return render_template_string("""
         <!DOCTYPE html>
         <html lang="en">
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Roll {{ sticker }} – Gil Plaquet FilmLab</title>
+          <title>Enter Password – Roll {{ sticker }}</title>
           <style>
             body {
               font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -253,69 +244,82 @@ def gallery(sticker):
               padding: 0;
             }
             .container {
-              max-width: 960px;
-              margin: 0 auto;
-              padding: 40px 20px;
+              max-width: 400px;
+              margin: 100px auto;
+              padding: 20px;
+              border: 1px solid #ddd;
+              border-radius: 8px;
               text-align: center;
             }
-            h1 {
-              font-size: 2em;
-              margin-bottom: 0.5em;
-            }
-            .gallery {
-              display: grid;
-              grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-              gap: 10px;
-              margin-top: 30px;
-            }
-            .gallery img {
-              width: 100%;
+            img {
+              max-width: 200px;
               height: auto;
-              display: block;
-              border-radius: 8px;
-              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+              margin-bottom: 20px;
             }
-            .download {
-              display: inline-block;
-              margin-bottom: 30px;
-              padding: 12px 24px;
-              border: 2px solid #333333;
+            h2 {
+              font-size: 1.5em;
+              margin-bottom: 1em;
+            }
+            input[type="password"] {
+              width: 100%;
+              padding: 10px;
+              font-size: 1em;
+              margin-bottom: 1em;
+              border: 1px solid #ccc;
               border-radius: 4px;
-              text-decoration: none;
-              color: #333333;
-              font-weight: bold;
+            }
+            button {
+              padding: 10px 20px;
+              font-size: 1em;
+              border: 2px solid #333;
+              border-radius: 4px;
+              background-color: #fff;
+              color: #333;
+              cursor: pointer;
               transition: background-color 0.3s ease, color 0.3s ease;
             }
-            .download:hover {
-              background-color: #333333;
-              color: #ffffff;
-            }
-            footer {
-              margin-top: 60px;
-              font-size: 0.9em;
-              color: #888888;
+            button:hover {
+              background-color: #333;
+              color: #fff;
             }
           </style>
         </head>
         <body>
           <div class="container">
-            <div>
-              <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; height: auto; margin-bottom: 20px;">
-            </div>
-            <a class="download" href="{{ zip_url }}">Download All (ZIP)</a>
-            <h1>Roll {{ sticker }}</h1>
-            <div class="gallery">
-              {% for url in image_urls %}
-                <img src="{{ url }}" alt="Scan {{ loop.index }}">
-              {% endfor %}
-            </div>
-            <footer>
-              &copy; {{ current_year }} Gil Plaquet
-            </footer>
+            <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo">
+            <h2>Enter password to access Roll {{ sticker }}</h2>
+            <form method="POST">
+              <input type="password" name="password" placeholder="Password" required>
+              <button type="submit">Submit</button>
+            </form>
           </div>
         </body>
         </html>
-        """, sticker=sticker, image_urls=image_urls, zip_url=zip_url, current_year=datetime.now().year)
+        """, sticker=sticker)
+
+    def find_folder_by_suffix(suffix):
+        folders = list_roll_folders()
+        for name in folders:
+            if name.endswith(suffix.zfill(6)):
+                return name
+        return None
+
+    folder = find_folder_by_suffix(sticker)
+    if not folder:
+        return f"No folder found for sticker {sticker}.", 404
+
+    prefix = f"rolls/{folder}/"
+    s3 = boto3.client(
+        's3',
+        aws_access_key_id=S3_ACCESS_KEY_ID,
+        aws_secret_access_key=S3_SECRET_ACCESS_KEY,
+        endpoint_url=S3_ENDPOINT_URL,
+        config=Config(signature_version='s3v4')
+    )
+    result = s3.list_objects_v2(Bucket=B2_BUCKET_NAME, Prefix=prefix)
+    image_files = [obj["Key"] for obj in result.get("Contents", []) if obj["Key"].lower().endswith(('.jpg', '.jpeg', '.png'))]
+    image_urls = [generate_signed_url(f) for f in image_files]
+    zip_url = generate_signed_url(f"{prefix}Archive.zip")
 
     return render_template_string("""
     <!DOCTYPE html>
@@ -323,7 +327,7 @@ def gallery(sticker):
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Enter Password – Roll {{ sticker }}</title>
+      <title>Roll {{ sticker }} – Gil Plaquet FilmLab</title>
       <style>
         body {
           font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -333,60 +337,70 @@ def gallery(sticker):
           padding: 0;
         }
         .container {
-          max-width: 400px;
-          margin: 100px auto;
-          padding: 20px;
-          border: 1px solid #ddd;
-          border-radius: 8px;
+          max-width: 960px;
+          margin: 0 auto;
+          padding: 40px 20px;
           text-align: center;
         }
-        img {
-          max-width: 200px;
-          height: auto;
-          margin-bottom: 20px;
+        h1 {
+          font-size: 2em;
+          margin-bottom: 0.5em;
         }
-        h2 {
-          font-size: 1.5em;
-          margin-bottom: 1em;
+        .gallery {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+          gap: 10px;
+          margin-top: 30px;
         }
-        input[type="password"] {
+        .gallery img {
           width: 100%;
-          padding: 10px;
-          font-size: 1em;
-          margin-bottom: 1em;
-          border: 1px solid #ccc;
-          border-radius: 4px;
+          height: auto;
+          display: block;
+          border-radius: 8px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
-        button {
-          padding: 10px 20px;
-          font-size: 1em;
-          border: 2px solid #333;
+        .download {
+          display: inline-block;
+          margin-bottom: 30px;
+          padding: 12px 24px;
+          border: 2px solid #333333;
           border-radius: 4px;
-          background-color: #fff;
-          color: #333;
-          cursor: pointer;
+          text-decoration: none;
+          color: #333333;
+          font-weight: bold;
           transition: background-color 0.3s ease, color 0.3s ease;
         }
-        button:hover {
-          background-color: #333;
-          color: #fff;
+        .download:hover {
+          background-color: #333333;
+          color: #ffffff;
+        }
+        footer {
+          margin-top: 60px;
+          font-size: 0.9em;
+          color: #888888;
         }
       </style>
     </head>
     <body>
       <div class="container">
-        <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo">
-        <h2>Enter password to access Roll {{ sticker }}</h2>
-        <form method="POST">
-          <input type="password" name="password" placeholder="Password" required>
-          <button type="submit">Submit</button>
-        </form>
+        <div>
+          <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; height: auto; margin-bottom: 20px;">
+        </div>
+        <a class="download" href="{{ zip_url }}">Download All (ZIP)</a>
+        <a class="download" href="/roll/{{ sticker }}/order">Order Prints</a>
+        <h1>Roll {{ sticker }}</h1>
+        <div class="gallery">
+          {% for url in image_urls %}
+            <img src="{{ url }}" alt="Scan {{ loop.index }}">
+          {% endfor %}
+        </div>
+        <footer>
+          &copy; {{ current_year }} Gil Plaquet
+        </footer>
       </div>
     </body>
     </html>
-    """, sticker=sticker)
-
-...
+    """, sticker=sticker, image_urls=image_urls, zip_url=zip_url, current_year=datetime.now().year)
 
 @app.route('/roll/<sticker>/order', methods=['GET', 'POST'])
 def order_page(sticker):
@@ -395,11 +409,23 @@ def order_page(sticker):
         return "Roll not found.", 404
 
     expected_password = record['fields'].get("Password")
+    updated_time = record['fields'].get("Password Updated")
 
-    if session.get(f"access_{sticker}"):
+    if not expected_password or not updated_time:
+        return "Missing password data.", 403
+
+    # Check if password is expired (older than 7 days)
+    try:
+        password_age = (datetime.utcnow() - datetime.strptime(updated_time, "%Y-%m-%dT%H:%M:%S.%fZ")).total_seconds()
+        if password_age > 604800:  # 7 days in seconds
+            return "Password expired.", 403
+    except Exception as e:
+        return f"Invalid password timestamp format: {e}", 403
+
+    if session.get(f"access_{sticker}") == expected_password:
         password_ok = True
     elif request.method == "POST" and request.form.get("password") == expected_password:
-        session[f"access_{sticker}"] = True
+        session[f"access_{sticker}"] = expected_password
         password_ok = True
     else:
         password_ok = False
