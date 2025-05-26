@@ -75,25 +75,34 @@ def find_airtable_record(twin_sticker):
     records = response.json().get("records", [])
     return records[0] if records else None
 
-# === Airtable: Add to Print Orders Table ===
-def create_print_order_record(sticker, client_email, submitted_order, mollie_id):
-    url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Print%20Orders"
+# === Airtable: Store print order in existing Rolls table ===
+def store_print_order_in_roll(sticker, submitted_order, mollie_id):
+    url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
     headers = {
         "Authorization": f"Bearer {AIRTABLE_API_KEY}",
         "Content-Type": "application/json"
     }
-    fields = {
-        "Sticker": sticker,
-        "Client Email": client_email,
-        "Order JSON": json.dumps(submitted_order),
-        "Mollie ID": mollie_id,
-        "Paid": False
+    formula = f"{{Twin Sticker}}='{sticker}'"
+    response = requests.get(url, headers=headers, params={"filterByFormula": formula})
+    records = response.json().get("records", [])
+    if not records:
+        log(f"❌ No matching roll found for sticker {sticker}")
+        return
+
+    roll_id = records[0]["id"]
+    patch_url = f"{url}/{roll_id}"
+    patch_data = {
+        "fields": {
+            "Print Order JSON": json.dumps(submitted_order),
+            "Mollie ID": mollie_id,
+            "Print Order Paid": False
+        }
     }
-    response = requests.post(url, headers=headers, json={"fields": fields})
-    if response.status_code == 200:
-        log("✅ Print order stored in Airtable.")
+    patch_response = requests.patch(patch_url, headers=headers, json=patch_data)
+    if patch_response.status_code == 200:
+        log("✅ Print order saved to Rolls table.")
     else:
-        log(f"❌ Failed to store print order: {response.text}")
+        log(f"❌ Failed to update Rolls record: {patch_response.text}")
 
 # === Email ===
 def generate_password(length=8):
