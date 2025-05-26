@@ -1110,6 +1110,7 @@ def thank_you(sticker):
     </body>
     </html>
     """)
+
 @app.route('/mollie-webhook', methods=['POST'])
 def mollie_webhook():
     mollie_api_key = os.getenv("MOLLIE_API_KEY")
@@ -1117,6 +1118,7 @@ def mollie_webhook():
         return "API key missing", 500
 
     from mollie.api.client import Client as MollieClient
+    from urllib.parse import urlparse, unquote
     mollie_client = MollieClient()
     mollie_client.set_api_key(mollie_api_key)
 
@@ -1217,8 +1219,13 @@ def mollie_webhook():
 
         internal_body = f"<h3>Roll {sticker} – Print Order Summary</h3><ul>"
         for item in submitted_order:
-            filename = item['url'].split("/")[-1]
-            internal_body += f"<li>{filename}<br>{item['size']} – {item['paper']}, Border: {item['border']}<br><img src='{item['url']}' width='100'></li>"
+            parsed_url = urlparse(item['url'])
+            filename = unquote(parsed_url.path.split("/")[-1].split("?")[0])
+            internal_body += (
+                f"<li><strong>{filename}</strong><br>"
+                f"{item['size']} – {item['paper']}, Border: {item['border']}<br>"
+                f"<img src='{item['url']}' width='100'></li>"
+            )
         internal_body += "</ul>"
 
         internal_msg.set_content("New print order received.")
