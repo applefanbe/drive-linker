@@ -276,6 +276,7 @@ def gallery(sticker):
               color: #333333;
               margin: 0;
               padding: 0;
+              text-align: center;
             }
             .container {
               max-width: 400px;
@@ -369,12 +370,12 @@ def gallery(sticker):
           color: #333333;
           margin: 0;
           padding: 0;
+          text-align: center;
         }
         .container {
           max-width: 960px;
           margin: 0 auto;
           padding: 40px 20px;
-          text-align: center;
         }
         h1 {
           font-size: 2em;
@@ -532,8 +533,13 @@ button:hover { background: #333; color: #fff; }
     }
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      grid-template-columns: repeat(3, 1fr);
       gap: 12px;
+    }
+    @media (max-width: 700px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
     }
     .grid-item {
       border: 1px solid #eee;
@@ -621,6 +627,8 @@ button:hover { background: #333; color: #fff; }
     function updateSubmitState() {
       const checked = document.querySelectorAll('input[name="selected_images"]:checked').length;
       document.getElementById('nextButton').disabled = checked === 0;
+      const topBtn = document.getElementById('topOrderButton');
+      if (topBtn) topBtn.disabled = checked === 0;
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -637,17 +645,16 @@ button:hover { background: #333; color: #fff; }
       <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; margin-bottom: 20px;">
     </div>
     <a class="download" href="/roll/{{ sticker }}">← Back to Gallery</a>
-    <div class="button-row">
-      {% if show_whole_roll_buttons %}
-        <button onclick="submitWholeRoll('Matte')">Print Whole Roll on 10x15 Matte (15 euro)</button>
-        <button onclick="submitWholeRoll('Glossy')">Print Whole Roll on 10x15 Glossy (15 euro)</button>
-        <button onclick="submitWholeRoll('Luster')">Print Whole Roll on 10x15 Luster (15 euro)</button>
-      {% endif %}
-      <button onclick="document.querySelector('form').submit();">Order Selected Prints</button>
-    </div>
-    <p class="note">Select your prints below</p>
-
     <form method="POST" action="/roll/{{ sticker }}/submit-order">
+      <div class="button-row">
+        {% if show_whole_roll_buttons %}
+          <button type="button" onclick="submitWholeRoll('Matte')">Print Whole Roll on 10x15 Matte (15 euro)</button>
+          <button type="button" onclick="submitWholeRoll('Glossy')">Print Whole Roll on 10x15 Glossy (15 euro)</button>
+          <button type="button" onclick="submitWholeRoll('Luster')">Print Whole Roll on 10x15 Luster (15 euro)</button>
+        {% endif %}
+        <button type="submit" id="topOrderButton">Order Selected Prints</button>
+      </div>
+      <p class="note">Select your prints below</p>
       <div class="grid">
         {% for url in image_urls %}
           <div class="grid-item">
@@ -693,104 +700,158 @@ def submit_order(sticker):
     if not submitted_order:
         return "No images selected.", 400
 
-    return render_template_string("""
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <title>Confirm Order – Roll {{ sticker }}</title>
-      <style>
-        body { font-family: Helvetica, sans-serif; background: #fff; color: #333; margin: 0; padding: 0; }
-        .container { max-width: 960px; margin: 0 auto; padding: 40px 20px; text-align: center; }
-        h1 { margin-bottom: 1em; }
-        .controls { margin-bottom: 30px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
-        .grid-item { border: 1px solid #ccc; border-radius: 6px; padding: 12px; text-align: center; }
-        .grid-item img { max-height: 180px; width: auto; margin-bottom: 10px; }
-        select, input[type="text"] { width: 100%; padding: 6px; margin-top: 6px; margin-bottom: 10px; }
-        button { margin-top: 20px; padding: 10px 20px; font-size: 1em; border: 2px solid #333; border-radius: 4px; background: #fff; cursor: pointer; }
-        button:hover { background: #333; color: #fff; }
-      </style>
-      <script>
-        function applyToAll() {
-          const size = document.getElementById('applySize').value;
-          const paper = document.getElementById('applyPaper').value;
-          const border = document.getElementById('applyBorder').value;
+    def calculate_price(size):
+        if size == '10x15':
+            return 0.75
+        elif size == 'A6':
+            return 1.5
+        elif size == 'A5':
+            return 3.0
+        elif size == 'A4':
+            return 6.0
+        elif size == 'A3':
+            return 12.0
+        return 0.0
 
-          document.querySelectorAll('[data-row]').forEach(row => {
-            row.querySelector('.size').value = size;
-            row.querySelector('.paper').value = paper;
-            row.querySelector('.border').value = border;
-          });
-        }
-      </script>
-    </head>
-    <body>
-      <div class="container">
-        <h1>Confirm Your Print Order – Roll {{ sticker }}</h1>
-        <div class="controls">
-          <label>Size: <select id="applySize">
-            <option>10x15</option>
-            <option>A6</option>
-            <option>A5</option>
-            <option>A4</option>
-            <option>A3</option>
-          </select></label>
-          <label>Paper: <select id="applyPaper">
-            <option>Glossy</option>
-            <option>Matte</option>
-            <option>Luster</option>
-          </select></label>
-          <label>Include Scan Border: <select id="applyBorder">
-            <option>No</option>
-            <option>Yes</option>
-          </select></label>
-          <button onclick="applyToAll()">Apply to All</button>
-        </div>
-        <form method="POST" id="orderForm">
-          <div class="grid">
-            {% for item in submitted_order %}
-              <div class="grid-item" data-row>
-                <img src="{{ item.url }}">
-                <input type="hidden" name="order[{{ loop.index0 }}][url]" value="{{ item.url }}">
-                <label>Size:
-                  <select name="order[{{ loop.index0 }}][size]" class="size">
-                    <option {% if item.size == '10x15' %}selected{% endif %}>10x15</option>
-                    <option {% if item.size == 'A6' %}selected{% endif %}>A6</option>
-                    <option {% if item.size == 'A5' %}selected{% endif %}>A5</option>
-                    <option {% if item.size == 'A4' %}selected{% endif %}>A4</option>
-                    <option {% if item.size == 'A3' %}selected{% endif %}>A3</option>
-                  </select>
-                </label>
-                <label>Paper:
-                  <select name="order[{{ loop.index0 }}][paper]" class="paper">
-                    <option {% if item.paper == 'Glossy' %}selected{% endif %}>Glossy</option>
-                    <option {% if item.paper == 'Matte' %}selected{% endif %}>Matte</option>
-                    <option {% if item.paper == 'Luster' %}selected{% endif %}>Luster</option>
-                  </select>
-                </label>
-                <label>Include Scan Border:
-                  <select name="order[{{ loop.index0 }}][border]" class="border">
-                    <option {% if item.border == 'No' %}selected{% endif %}>No</option>
-                    <option {% if item.border == 'Yes' %}selected{% endif %}>Yes</option>
-                  </select>
-                </label>
-              </div>
-            {% endfor %}
+    total = 0.0
+    count_10x15 = 0
+    for item in submitted_order:
+        item['price'] = calculate_price(item['size'])
+        if item['size'] == '10x15':
+            count_10x15 += 1
+        total += item['price']
+
+    if count_10x15 >= 20:
+        total = min(total, 15.0)
+
+    return render_template_string("""
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Confirm Order – Roll {{ sticker }}</title>
+  <style>
+    body { font-family: Helvetica, sans-serif; background: #fff; color: #333; margin: 0; padding: 0; }
+    .container { max-width: 960px; margin: 0 auto; padding: 40px 20px; text-align: center; }
+    h1 { margin-bottom: 0.5em; }
+    .controls { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-bottom: 30px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+    .grid-item { border: 1px solid #ccc; border-radius: 6px; padding: 12px; text-align: center; }
+    .grid-item img { max-height: 180px; width: auto; margin-bottom: 10px; }
+    .grid-item .selectors { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+    .price-tag { font-size: 0.95em; color: #555; }
+    select { padding: 4px 6px; font-size: 0.95em; max-width: 100%; }
+    select.size { width: auto; min-width: 60px; }
+    select.paper { width: auto; min-width: 70px; }
+    select.border { width: auto; min-width: 100px; }
+    .actions { margin: 20px 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+    button, .button-link {
+      padding: 10px 20px;
+      font-size: 1em;
+      border: 2px solid #333;
+      border-radius: 4px;
+      background: #fff;
+      color: #333;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+    button:hover, .button-link:hover {
+      background: #333;
+      color: #fff;
+    }
+  </style>
+  <script>
+    function applyToAll() {
+      const size = document.getElementById('applySize').value;
+      const paper = document.getElementById('applyPaper').value;
+      const border = document.getElementById('applyBorder').value;
+      document.querySelectorAll('[data-row]').forEach(row => {
+        row.querySelector('.size').value = size;
+        row.querySelector('.paper').value = paper;
+        row.querySelector('.border').value = border;
+      });
+    }
+  </script>
+</head>
+<body>
+  <div class="container">
+    <div>
+      <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; margin-bottom: 20px;">
+    </div>
+    <h1>Confirm Your Print Order – Roll {{ sticker }}</h1>
+    <p><strong>Your order total is €{{ '%.2f'|format(total) }}</strong></p>
+    <div class="actions">
+      <a class="button-link" href="/roll/{{ sticker }}/order">← Back to Selection</a>
+      <button type="submit" form="finalizeForm">Review & Pay</button>
+    </div>
+    <div class="controls">
+      <label>Size:
+        <select id="applySize">
+          <option>10x15</option>
+          <option>A6</option>
+          <option>A5</option>
+          <option>A4</option>
+          <option>A3</option>
+        </select>
+      </label>
+      <label>Paper:
+        <select id="applyPaper">
+          <option>Glossy</option>
+          <option>Matte</option>
+          <option>Luster</option>
+        </select>
+      </label>
+      <label>Include Scan Border:
+        <select id="applyBorder">
+          <option>No</option>
+          <option>Yes</option>
+        </select>
+      </label>
+      <button onclick="applyToAll()">Apply to All</button>
+    </div>
+    <form method="POST" action="/roll/{{ sticker }}/finalize-order" id="finalizeForm">
+      <div class="grid">
+        {% for item in submitted_order %}
+          <div class="grid-item" data-row>
+            <img src="{{ item.url }}">
+            <div class="selectors">
+              <select name="order[{{ loop.index0 }}][size]" class="size">
+                <option {% if item.size == '10x15' %}selected{% endif %}>10x15</option>
+                <option {% if item.size == 'A6' %}selected{% endif %}>A6</option>
+                <option {% if item.size == 'A5' %}selected{% endif %}>A5</option>
+                <option {% if item.size == 'A4' %}selected{% endif %}>A4</option>
+                <option {% if item.size == 'A3' %}selected{% endif %}>A3</option>
+              </select>
+              <select name="order[{{ loop.index0 }}][paper]" class="paper">
+                <option {% if item.paper == 'Glossy' %}selected{% endif %}>Glossy</option>
+                <option {% if item.paper == 'Matte' %}selected{% endif %}>Matte</option>
+                <option {% if item.paper == 'Luster' %}selected{% endif %}>Luster</option>
+              </select>
+              <select name="order[{{ loop.index0 }}][border]" class="border">
+                <option {% if item.border == 'No' %}selected{% endif %}>No</option>
+                <option {% if item.border == 'Yes' %}selected{% endif %}>Yes</option>
+              </select>
+            </div>
+            <div class="price-tag">€{{ '%.2f'|format(item.price) }}</div>
+            <input type="hidden" name="order[{{ loop.index0 }}][url]" value="{{ item.url }}">
           </div>
-          <button type="submit" formaction="/roll/{{ sticker }}/review-order">Review & Pay</button>
-        </form>
+        {% endfor %}
       </div>
-    </body>
-    </html>
-    """, sticker=sticker, submitted_order=submitted_order)
+      <button type="submit">Review & Pay</button>
+    </form>
+  </div>
+</body>
+</html>
+""", sticker=sticker, submitted_order=submitted_order, total=total)
 
 @app.route('/roll/<sticker>/review-order', methods=['POST'])
 def review_order(sticker):
     submitted_order = []
-    total = 0.0
+    type_counter = {}
+    subtotal = 0.0
+    tax_rate = 0.21
     count_10x15 = 0
-
     for key in request.form:
         if key.startswith('order[') and key.endswith('][url]'):
             index = key.split('[')[1].split(']')[0]
@@ -798,105 +859,129 @@ def review_order(sticker):
             size = request.form.get(f'order[{index}][size]', '10x15')
             paper = request.form.get(f'order[{index}][paper]', 'Glossy')
             border = request.form.get(f'order[{index}][border]', 'No')
-
-            submitted_order.append({
-                'url': url,
-                'size': size,
-                'paper': paper,
-                'border': border
-            })
-
+            
             if size == '10x15':
                 count_10x15 += 1
-                total += 0.75
+                price = 0.75
             elif size == 'A6':
-                total += 1.5
+                price = 1.5
             elif size == 'A5':
-                total += 3.0
+                price = 3.0
             elif size == 'A4':
-                total += 6.0
+                price = 6.0
             elif size == 'A3':
-                total += 12.0
+                price = 12.0
+            else:
+                price = 0.0
 
-    capped_total = min(total, 15.0) if count_10x15 >= 20 else total
+            key_type = f"{size} - {paper}"
+            type_counter[key_type] = type_counter.get(key_type, 0) + 1
+            submitted_order.append({'url': url, 'size': size, 'paper': paper, 'border': border, 'price': price})
+            subtotal += price
+
+    if count_10x15 >= 20:
+        subtotal = min(subtotal, 15.0)
+
+    tax = subtotal * tax_rate / (1 + tax_rate)
+    total = subtotal
 
     return render_template_string("""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <title>Review Your Order – Roll {{ sticker }}</title>
-        <style>
-            body {
-                font-family: Helvetica, sans-serif;
-                background: #fff;
-                color: #333;
-                padding: 40px;
-                max-width: 960px;
-                margin: auto;
-            }
-            h1 { margin-bottom: 20px; }
-            .grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-                gap: 20px;
-            }
-            .item {
-                border: 1px solid #ccc;
-                border-radius: 6px;
-                padding: 10px;
-                text-align: center;
-            }
-            .item img {
-                max-width: 100%;
-                height: auto;
-                border-radius: 4px;
-                margin-bottom: 10px;
-            }
-            .total {
-                font-size: 1.2em;
-                margin-top: 30px;
-            }
-            button {
-                margin-top: 20px;
-                padding: 12px 24px;
-                font-size: 1em;
-                background: black;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-            }
-            button:hover {
-                background: #333;
-            }
-        </style>
-    </head>
-    <body>
-        <h1>Review Your Print Order – Roll {{ sticker }}</h1>
-        <form method="POST" action="/roll/{{ sticker }}/finalize-order">
-            <div class="grid">
-            {% for item in submitted_order %}
-                <div class="item">
-                    <img src="{{ item.url }}">
-                    <div><strong>Size:</strong> {{ item.size }}</div>
-                    <div><strong>Paper:</strong> {{ item.paper }}</div>
-                    <div><strong>Include Scan Border:</strong> {{ item.border }}</div>
-                    <input type="hidden" name="order[{{ loop.index0 }}][url]" value="{{ item.url }}">
-                    <input type="hidden" name="order[{{ loop.index0 }}][size]" value="{{ item.size }}">
-                    <input type="hidden" name="order[{{ loop.index0 }}][paper]" value="{{ item.paper }}">
-                    <input type="hidden" name="order[{{ loop.index0 }}][border]" value="{{ item.border }}">
-                </div>
-            {% endfor %}
-            </div>
-            <div class="total">
-                Total: €{{ '%.2f' % capped_total }} {% if count_10x15 >= 20 %}(Capped at €15 for 10x15 prints){% endif %}
-            </div>
-            <button type="submit">Pay with Mollie</button>
-        </form>
-    </body>
-    </html>
-    """, sticker=sticker, submitted_order=submitted_order, capped_total=capped_total, count_10x15=count_10x15)
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Review Print Order – Roll {{ sticker }}</title>
+  <style>
+    body {
+      font-family: Helvetica, sans-serif;
+      background-color: #fff;
+      color: #333;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      text-align: center;
+    }
+    .summary {
+      margin: 20px 0 30px 0;
+    }
+    .summary h2 {
+      margin-bottom: 10px;
+    }
+    .summary p {
+      margin: 4px 0;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+    }
+    .grid-item {
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 10px;
+    }
+    .grid-item img {
+      height: 180px;
+      width: auto;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto 10px auto;
+    }
+    button {
+      margin-top: 20px;
+      padding: 12px 24px;
+      font-size: 1em;
+      border: 2px solid #333;
+      border-radius: 4px;
+      background: #fff;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #333;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div>
+      <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; margin-bottom: 20px;">
+    </div>
+    <h1>Review Your Print Order – Roll {{ sticker }}</h1>
+    <div class="summary">
+      <h2>Total: €{{ '%.2f'|format(total) }} (incl. VAT)</h2>
+      <form method="POST" action="/roll/{{ sticker }}/finalize-order">
+        {% for item in submitted_order %}
+          <input type="hidden" name="order[{{ loop.index0 }}][url]" value="{{ item.url }}">
+          <input type="hidden" name="order[{{ loop.index0 }}][size]" value="{{ item.size }}">
+          <input type="hidden" name="order[{{ loop.index0 }}][paper]" value="{{ item.paper }}">
+          <input type="hidden" name="order[{{ loop.index0 }}][border]" value="{{ item.border }}">
+        {% endfor %}
+        <button type="submit">Pay with Mollie</button>
+      </form>
+      <h3 style="margin-top:30px;">Order Breakdown:</h3>
+      {% for type, count in type_counter.items() %}
+        <p>{{ count }} × {{ type }}</p>
+      {% endfor %}
+      <p>Subtotal (excl. VAT): €{{ '%.2f'|format(total - tax) }}</p>
+      <p>VAT (21%): €{{ '%.2f'|format(tax) }}</p>
+    </div>
+    <div class="grid">
+      {% for item in submitted_order %}
+        <div class="grid-item">
+          <img src="{{ item.url }}">
+          <p>{{ item.size }} – {{ item.paper }}<br>€{{ '%.2f'|format(item.price) }}</p>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</body>
+</html>
+""", sticker=sticker, submitted_order=submitted_order, total=total, tax=tax, type_counter=type_counter)
 
 @app.route('/roll/<sticker>/finalize-order', methods=['POST'])
 def finalize_order(sticker):
@@ -971,6 +1056,8 @@ def finalize_order(sticker):
 
 @app.route('/roll/<sticker>/thank-you')
 def thank_you(sticker):
+    record = find_airtable_record(sticker)
+    email = record['fields'].get('Client Email', 'your email')
     return render_template_string(f"""
     <!DOCTYPE html>
     <html>
@@ -992,24 +1079,29 @@ def thank_you(sticker):
             p {{
                 font-size: 1.2em;
             }}
+            img {{
+                max-width: 200px;
+                margin-bottom: 30px;
+            }}
         </style>
     </head>
     <body>
+        <img src='https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png' alt='Logo'>
         <h1>Thank you for your order!</h1>
         <p>Your payment was successful and your print order for roll <strong>{sticker}</strong> has been received.</p>
-        <p>You’ll receive a confirmation email shortly.</p>
+        <p>You’ll receive a confirmation email shortly at <strong>{email}</strong>.</p>
+    <p><a href='/roll/{sticker}' style='display:inline-block; margin-top:30px; padding:10px 20px; font-size:1em; border:2px solid #333; border-radius:4px; background:#fff; color:#333; text-decoration:none;'>Back to Gallery</a></p>
     </body>
     </html>
     """)
 
 @app.route('/mollie-webhook', methods=['POST'])
 def mollie_webhook():
-    from mollie.api.client import Client as MollieClient
-
     mollie_api_key = os.getenv("MOLLIE_API_KEY")
     if not mollie_api_key:
         return "API key missing", 500
 
+    from mollie.api.client import Client as MollieClient
     mollie_client = MollieClient()
     mollie_client.set_api_key(mollie_api_key)
 
@@ -1022,31 +1114,71 @@ def mollie_webhook():
         if not payment.is_paid():
             return "Payment not completed", 200
 
-        # Look up Rolls record by Mollie ID
         airtable_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
         headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
         formula = f"{{Mollie ID}}='{payment_id}'"
         response = requests.get(airtable_url, headers=headers, params={"filterByFormula": formula})
         records = response.json().get("records", [])
         if not records:
-            return "Roll not found", 404
+            return "Order not found", 404
 
-        roll_record = records[0]
-        fields = roll_record["fields"]
+        record = records[0]
+        fields = record["fields"]
         sticker = fields.get("Twin Sticker")
         client_email = fields.get("Client Email")
         client_name = fields.get("Client Name", "Client")
-        submitted_order = json.loads(fields.get("Print Order JSON", "[]"))
+        submitted_order = json.loads(fields.get("Order JSON", "[]"))
 
-        # Mark order as Paid
-        update_url = f"{airtable_url}/{roll_record['id']}"
-        requests.patch(update_url, headers=headers, json={"fields": {"Print Order Paid": True}})
+        # Mark as Paid
+        update_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}/{record['id']}"
+        update_response = requests.patch(update_url, headers=headers, json={"fields": {"Paid": True}})
 
-        # Send confirmation email
-        email_body = f"<p>Hi {client_name},</p><p>Thank you for your print order. Here’s a summary of what you selected for roll <strong>{sticker}</strong>:</p><ul>"
+        # Calculate pricing breakdown
+        type_counter = {}
+        subtotal = 0.0
+        count_10x15 = 0
+        tax_rate = 0.21
+
         for item in submitted_order:
-            email_body += f"<li><img src='{item['url']}' width='100'><br>Size: {item['size']}, Paper: {item['paper']}, Include Scan Border: {item['border']}</li>"
-        email_body += "</ul><p>We’ll start printing soon!</p>"
+            size = item['size']
+            paper = item['paper']
+            price = 0.0
+            if size == '10x15':
+                price = 0.75
+                count_10x15 += 1
+            elif size == 'A6': price = 1.5
+            elif size == 'A5': price = 3.0
+            elif size == 'A4': price = 6.0
+            elif size == 'A3': price = 12.0
+            
+            key = f"{size} - {paper}"
+            type_counter[key] = type_counter.get(key, 0) + 1
+            subtotal += price
+
+        if count_10x15 >= 20:
+            subtotal = min(subtotal, 15.0)
+
+        tax = subtotal * tax_rate / (1 + tax_rate)
+        total = subtotal
+
+        # Compose customer email
+        email_body = f"""
+        <div style='text-align: center;'>
+          <img src='https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png' style='max-width: 200px; margin-bottom: 20px;'>
+        </div>
+        <div style='font-family: Helvetica, sans-serif; font-size: 16px;'>
+        <p>Hi there,</p>
+        <p>Thank you for your print order. Here’s a summary of what you selected for roll <strong>{sticker}</strong>:</p>
+        <ul>
+        """
+        for item in submitted_order:
+            email_body += f"<li><img src='{item['url']}' width='100'><br>{item['size']} – {item['paper']}, Include Scan Border: {item['border']}</li>"
+        email_body += "</ul>"
+        email_body += f"<p><strong>Delivery Method:</strong> {fields.get('Delivery Method', 'N/A')}</p>"\n        email_body += "<p><strong>Order Breakdown:</strong></p><ul>"
+        for type, count in type_counter.items():
+            email_body += f"<li>{count} × {type}</li>"
+        email_body += f"</ul><p>Subtotal (excl. VAT): €{subtotal - tax:.2f}<br>VAT (21%): €{tax:.2f}<br><strong>Total: €{total:.2f}</strong></p>"
+        email_body += "<p>The order was successfully paid through Mollie.</p><p>We’ll start printing soon!<br>We'll notify you when your prints are ready for pickup at the lab or your drop-off point.</p></div>"
 
         msg = EmailMessage()
         msg["From"] = "Gil Plaquet FilmLab <filmlab@gilplaquet.com>"
@@ -1060,6 +1192,26 @@ def mollie_webhook():
             server.starttls()
             server.login(SMTP_USER, SMTP_PASS)
             server.send_message(msg)
+
+        # Internal notification email
+        internal_msg = EmailMessage()
+        internal_msg["From"] = "Gil Plaquet FilmLab <filmlab@gilplaquet.com>"
+        internal_msg["To"] = "filmlab@gilplaquet.com"
+        internal_msg["Subject"] = f"A new print order for roll {sticker}"
+
+        internal_body = f"<h3>Roll {sticker} – Print Order Summary</h3><ul>"
+        for item in submitted_order:
+            filename = item['url'].split("/")[-1]
+            internal_body += f"<li>{filename}<br>{item['size']} – {item['paper']}, Border: {item['border']}<br><img src='{item['url']}' width='100'></li>"
+        internal_body += "</ul>"
+
+        internal_msg.set_content("New print order received.")
+        internal_msg.add_alternative(f"<html><body>{internal_body}</body></html>", subtype="html")
+
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASS)
+            server.send_message(internal_msg)
 
         return "OK", 200
 
