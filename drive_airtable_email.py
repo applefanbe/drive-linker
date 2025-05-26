@@ -744,5 +744,164 @@ def submit_order(sticker):
     </html>
     """, sticker=sticker, submitted_order=submitted_order)
 
+@app.route('/roll/<sticker>/finalize-order', methods=['POST'])
+def finalize_order(sticker):
+    import mollie
+    from mollie.api.client import Client as MollieClient
+
+    record = find_airtable_record(sticker)
+    if not record:
+        return "Roll not found.", 404
+
+    mollie_api_key = os.getenv("MOLLIE_API_KEY")
+    if not mollie_api_key:
+        return "Mollie API key not set.", 500
+
+    mollie_client = MollieClient()
+    mollie_client.set_api_key(mollie_api_key)
+
+    submitted_order = []
+    total = 0.0
+    count_10x15 = 0
+    for key in request.form:
+        if key.startswith('order[') and key.endswith('][url]'):
+            index = key.split('[')[1].split(']')[0]
+            url = request.form.get(f'order[{index}][url]')
+            size = request.form.get(f'order[{index}][size]', '10x15')
+            paper = request.form.get(f'order[{index}][paper]', 'Glossy')
+            border = request.form.get(f'order[{index}][border]', 'No')
+
+            submitted_order.append({
+                'url': url,
+                'size': size,
+                'paper': paper,
+                'border': border
+            })
+
+            # Calculate total price
+            if size == '10x15':
+                count_10x15 += 1
+                total += 0.75
+            elif size == 'A6':
+                total += 1.5
+            elif size == 'A5':
+                total += 3.0
+            elif size == 'A4':
+                total += 6.0
+            elif size == 'A3':
+                total += 12.0
+
+    # Apply price cap
+    if count_10x15 >= 20:
+        capped_total = min(total, 15.0)
+    else:
+        capped_total = total
+
+    # Create payment in Mollie
+    description = f"Print order for roll {sticker}"
+    redirect_url = f"https://scans.gilplaquet.com/roll/{sticker}/thank-you"
+
+    try:
+        payment = mollie_client.payments.create({
+            "amount": {
+                "currency": "EUR",
+                "value": f"{capped_total:.2f}"
+            },
+            "description": description,
+            "redirectUrl": redirect_url,
+            "webhookUrl": "https://scans.gilplaquet.com/mollie-webhook",
+            "metadata": {
+                "sticker": sticker,
+                "order": submitted_order
+            }
+        })
+        return redirect(payment.checkout_url)
+    except Exception as e:
+        return f"Payment creation failed: {e}", 500
+
+@app.route('/roll/<sticker>/thank-you')
+def thank_you(sticker):
+    return render_template_string(f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Thank You – Roll {sticker}</title>
+        <style>
+            body {{
+                font-family: Helvetica, sans-serif;
+                background-color: #f9f9f9;
+                color: #333;
+                text-align: center;
+                padding: 100px 20px;
+            }}
+            h1 {{
+                font-size: 2em;
+                margin-bottom: 20px;
+            }}
+            p {{
+                font-size: 1.2em;
+            }}
+        </style>
+    </head>
+    <body>
+        <h1>Thank you for your order!</h1>
+        <p>Your payment was successful and your print order for roll <strong>{sticker}</strong> has been received.</p>
+        <p>You’ll receive a confirmation email shortly.</p>
+    </body>
+    </html>
+    """)
+
+@app.route('/mollie-webhook', methods=['POST'])
+def mollie_webhook():
+    mollie_api_key = os.getenv("MOLLIE_API_KEY")
+    if not mollie_api_key:
+        return "API key missing", 500
+
+    mollie_client = __import__('mollie').api.client.Client()
+    mollie_client.set_api_key(mollie_api_key)
+
+    payment_id = request.form.get("id")
+    if not payment_id:
+        return "Missing payment ID", 400
+
+    try:
+        payment = mollie_client.payments.get(payment_id)
+        if not payment.is_paid():
+            return "Payment not completed", 200  # return 200 to acknowledge receipt
+
+        sticker = payment.metadata.get("sticker")
+        submitted_order = payment.metadata.get("order", [])
+
+        record = find_airtable_record(sticker)
+        if not record:
+            return "Record not found", 404
+
+        client_email = record['fields'].get("Client Email")
+        client_name = record['fields'].get("Client Name", "Unknown")
+
+        email_body = f"<p>Hi {client_name},</p><p>Thank you for your print order. Here’s a summary of what you selected for roll <strong>{sticker}</strong>:</p><ul>"
+        for item in submitted_order:
+            email_body += f"<li><img src='{item['url']}' width='100'><br>Size: {item['size']}, Paper: {item['paper']}, Border: {item['border']}</li>"
+        email_body += "</ul><p>We’ll start printing soon!</p>"
+
+        msg = EmailMessage()
+        msg["From"] = "Gil Plaquet FilmLab <filmlab@gilplaquet.com>"
+        msg["To"] = client_email
+        msg["Bcc"] = "filmlab@gilplaquet.com"
+        msg["Subject"] = f"Print Order Confirmation – Roll {sticker}"
+        msg.set_content("Your order is confirmed.")
+        msg.add_alternative(f"<html><body>{email_body}</body></html>", subtype="html")
+
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASS)
+            server.send_message(msg)
+
+        return "OK", 200
+
+    except Exception as e:
+        return f"Webhook error: {e}", 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
