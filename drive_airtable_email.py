@@ -467,21 +467,21 @@ def order_page(sticker):
 
     if not password_ok:
         return render_template_string("""<!DOCTYPE html>
-<html><head><meta charset='UTF-8'><title>Enter Password – Roll {{ sticker }}</title>
+<html><head><meta charset=\"UTF-8\"><title>Enter Password – Roll {{ sticker }}</title>
 <style>
 body { font-family: Helvetica, sans-serif; background: #fff; color: #333; }
 .container { max-width: 400px; margin: 100px auto; padding: 20px; text-align: center; border: 1px solid #ddd; border-radius: 8px; }
-input[type='password'] { width: 100%; padding: 10px; margin-bottom: 1em; border: 1px solid #ccc; border-radius: 4px; }
+input[type=\"password\"] { width: 100%; padding: 10px; margin-bottom: 1em; border: 1px solid #ccc; border-radius: 4px; }
 button { padding: 10px 20px; border: 2px solid #333; border-radius: 4px; background: #fff; color: #333; cursor: pointer; }
 button:hover { background: #333; color: #fff; }
 </style>
 </head><body>
-<div class='container'>
-  <img src='https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png' alt='Logo' style='max-width:200px; margin-bottom:20px;'>
+<div class=\"container\">
+  <img src=\"https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png\" alt=\"Logo\" style=\"max-width:200px; margin-bottom:20px;\">
   <h2>Enter password to access Roll {{ sticker }}</h2>
-  <form method='POST'>
-    <input type='password' name='password' placeholder='Password' required>
-    <button type='submit'>Submit</button>
+  <form method=\"POST\">
+    <input type=\"password\" name=\"password\" placeholder=\"Password\" required>
+    <button type=\"submit\">Submit</button>
   </form>
 </div>
 </body></html>""", sticker=sticker)
@@ -515,7 +515,7 @@ button:hover { background: #333; color: #fff; }
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
+  <meta charset=\"UTF-8\">
   <title>Select Prints – Roll {{ sticker }}</title>
   <style>
     body {
@@ -533,7 +533,7 @@ button:hover { background: #333; color: #fff; }
     }
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 12px;
     }
     .grid-item {
