@@ -700,30 +700,6 @@ def submit_order(sticker):
     if not submitted_order:
         return "No images selected.", 400
 
-    def calculate_price(size):
-        if size == '10x15':
-            return 0.75
-        elif size == 'A6':
-            return 1.5
-        elif size == 'A5':
-            return 3.0
-        elif size == 'A4':
-            return 6.0
-        elif size == 'A3':
-            return 12.0
-        return 0.0
-
-    total = 0.0
-    count_10x15 = 0
-    for item in submitted_order:
-        item['price'] = calculate_price(item['size'])
-        if item['size'] == '10x15':
-            count_10x15 += 1
-        total += item['price']
-
-    if count_10x15 >= 20:
-        total = min(total, 15.0)
-
     return render_template_string("""
 <!DOCTYPE html>
 <html>
@@ -739,12 +715,10 @@ def submit_order(sticker):
     .grid-item { border: 1px solid #ccc; border-radius: 6px; padding: 12px; text-align: center; }
     .grid-item img { max-height: 180px; width: auto; margin-bottom: 10px; }
     .grid-item .selectors { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
-    .price-tag { font-size: 0.95em; color: #555; }
-    select { padding: 4px 6px; font-size: 0.95em; max-width: 100%; }
-    select.size { width: auto; min-width: 60px; }
-    select.paper { width: auto; min-width: 70px; }
-    select.border { width: auto; min-width: 100px; }
+    .price-tag { font-size: 0.95em; color: #555; margin-top: 4px; }
+    select { padding: 4px 6px; font-size: 0.95em; }
     .actions { margin: 20px 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+    .total-price { font-size: 1.2em; margin-top: 10px; }
     button, .button-link {
       padding: 10px 20px;
       font-size: 1em;
@@ -754,7 +728,6 @@ def submit_order(sticker):
       color: #333;
       cursor: pointer;
       text-decoration: none;
-      display: inline-block;
     }
     button:hover, .button-link:hover {
       background: #333;
@@ -770,8 +743,51 @@ def submit_order(sticker):
         row.querySelector('.size').value = size;
         row.querySelector('.paper').value = paper;
         row.querySelector('.border').value = border;
+        updatePrice(row);
       });
+      updateTotal();
     }
+
+    function getPrice(size) {
+      if (size === '10x15') return 0.75;
+      if (size === 'A6') return 1.5;
+      if (size === 'A5') return 3.0;
+      if (size === 'A4') return 6.0;
+      if (size === 'A3') return 12.0;
+      return 0;
+    }
+
+    function updatePrice(row) {
+      const size = row.querySelector('.size').value;
+      const price = getPrice(size);
+      row.querySelector('.price-tag').textContent = `€${price.toFixed(2)}`;
+    }
+
+    function updateTotal() {
+      let total = 0;
+      let count_10x15 = 0;
+      document.querySelectorAll('[data-row]').forEach(row => {
+        const size = row.querySelector('.size').value;
+        const price = getPrice(size);
+        total += price;
+        if (size === '10x15') count_10x15 += 1;
+      });
+      if (count_10x15 >= 20) total = Math.min(total, 15);
+      document.getElementById('totalDisplay').textContent = `Your order total is €${total.toFixed(2)}`;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('[data-row]').forEach(row => {
+        row.querySelectorAll('select').forEach(sel => {
+          sel.addEventListener('change', () => {
+            updatePrice(row);
+            updateTotal();
+          });
+        });
+        updatePrice(row);
+      });
+      updateTotal();
+    });
   </script>
 </head>
 <body>
@@ -780,37 +796,37 @@ def submit_order(sticker):
       <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; margin-bottom: 20px;">
     </div>
     <h1>Confirm Your Print Order – Roll {{ sticker }}</h1>
-    <p><strong>Your order total is €{{ '%.2f'|format(total) }}</strong></p>
-    <div class="actions">
-      <a class="button-link" href="/roll/{{ sticker }}/order">← Back to Selection</a>
-      <button type="submit" form="finalizeForm">Review & Pay</button>
-    </div>
-    <div class="controls">
-      <label>Size:
-        <select id="applySize">
-          <option>10x15</option>
-          <option>A6</option>
-          <option>A5</option>
-          <option>A4</option>
-          <option>A3</option>
-        </select>
-      </label>
-      <label>Paper:
-        <select id="applyPaper">
-          <option>Glossy</option>
-          <option>Matte</option>
-          <option>Luster</option>
-        </select>
-      </label>
-      <label>Include Scan Border:
-        <select id="applyBorder">
-          <option>No</option>
-          <option>Yes</option>
-        </select>
-      </label>
-      <button onclick="applyToAll()">Apply to All</button>
-    </div>
-    <form method="POST" action="/roll/{{ sticker }}/finalize-order" id="finalizeForm">
+    <p class="total-price" id="totalDisplay">Your order total is €0.00</p>
+    <form method="POST" action="/roll/{{ sticker }}/review-order">
+      <div class="actions">
+        <a class="button-link" href="/roll/{{ sticker }}/order">← Back to Selection</a>
+        <button type="submit">Review & Pay</button>
+      </div>
+      <div class="controls">
+        <label>Size:
+          <select id="applySize">
+            <option>10x15</option>
+            <option>A6</option>
+            <option>A5</option>
+            <option>A4</option>
+            <option>A3</option>
+          </select>
+        </label>
+        <label>Paper:
+          <select id="applyPaper">
+            <option>Glossy</option>
+            <option>Matte</option>
+            <option>Luster</option>
+          </select>
+        </label>
+        <label>Include Scan Border:
+          <select id="applyBorder">
+            <option>No</option>
+            <option>Yes</option>
+          </select>
+        </label>
+        <button type="button" onclick="applyToAll()">Apply to All</button>
+      </div>
       <div class="grid">
         {% for item in submitted_order %}
           <div class="grid-item" data-row>
@@ -833,7 +849,7 @@ def submit_order(sticker):
                 <option {% if item.border == 'Yes' %}selected{% endif %}>Yes</option>
               </select>
             </div>
-            <div class="price-tag">€{{ '%.2f'|format(item.price) }}</div>
+            <div class="price-tag">€0.00</div>
             <input type="hidden" name="order[{{ loop.index0 }}][url]" value="{{ item.url }}">
           </div>
         {% endfor %}
@@ -843,7 +859,7 @@ def submit_order(sticker):
   </div>
 </body>
 </html>
-""", sticker=sticker, submitted_order=submitted_order, total=total)
+""", sticker=sticker, submitted_order=submitted_order)
 
 @app.route('/roll/<sticker>/review-order', methods=['POST'])
 def review_order(sticker):
