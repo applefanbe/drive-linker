@@ -1111,7 +1111,7 @@ def thank_you(sticker):
     </html>
     """)
 
-    @app.route('/mollie-webhook', methods=['POST'])
+ @app.route('/mollie-webhook', methods=['POST'])
     def mollie_webhook():
         mollie_api_key = os.getenv("MOLLIE_API_KEY")
         if not mollie_api_key:
