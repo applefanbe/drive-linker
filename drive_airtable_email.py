@@ -876,11 +876,13 @@ def thank_you(sticker):
 
 @app.route('/mollie-webhook', methods=['POST'])
 def mollie_webhook():
+    from mollie.api.client import Client as MollieClient  # Correct import
+
     mollie_api_key = os.getenv("MOLLIE_API_KEY")
     if not mollie_api_key:
         return "API key missing", 500
 
-    mollie_client = __import__('mollie').api.client.Client()
+    mollie_client = MollieClient()
     mollie_client.set_api_key(mollie_api_key)
 
     payment_id = request.form.get("id")
@@ -890,9 +892,9 @@ def mollie_webhook():
     try:
         payment = mollie_client.payments.get(payment_id)
         if not payment.is_paid():
-            return "Payment not completed", 200
+            return "Payment not completed", 200  # Acknowledge webhook anyway
 
-        # Look up Print Order record from Airtable by Mollie ID
+        # Look up Print Order by Mollie ID
         airtable_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Print%20Orders"
         headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
         formula = f"{{Mollie ID}}='{payment_id}'"
@@ -908,11 +910,11 @@ def mollie_webhook():
         client_name = fields.get("Client Name", "Client")
         submitted_order = json.loads(fields.get("Order JSON", "[]"))
 
-        # Mark as Paid
+        # Mark order as Paid
         update_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Print%20Orders/{order_record['id']}"
         update_response = requests.patch(update_url, headers=headers, json={"fields": {"Paid": True}})
 
-        # Send confirmation email
+        # Compose confirmation email
         email_body = f"<p>Hi {client_name},</p><p>Thank you for your print order. Here’s a summary of what you selected for roll <strong>{sticker}</strong>:</p><ul>"
         for item in submitted_order:
             email_body += f"<li><img src='{item['url']}' width='100'><br>Size: {item['size']}, Paper: {item['paper']}, Include Scan Border: {item['border']}</li>"
