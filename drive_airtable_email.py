@@ -700,7 +700,7 @@ def submit_order(sticker):
             <option>Matte</option>
             <option>Luster</option>
           </select></label>
-          <label>Border: <select id="applyBorder">
+          <label>Include Scan Border: <select id="applyBorder">
             <option>No</option>
             <option>Yes</option>
           </select></label>
