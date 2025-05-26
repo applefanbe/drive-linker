@@ -387,9 +387,10 @@ def gallery(sticker):
           margin-top: 30px;
         }
         .gallery img {
-          width: 100%;
-          height: auto;
-          display: block;
+          width: auto;
+          max-width: 100%;
+          height: 240px;
+          object-fit: contain;
           border-radius: 8px;
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
@@ -531,7 +532,7 @@ button:hover { background: #333; color: #fff; }
     }
     .grid {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
       gap: 12px;
     }
     .grid-item {
@@ -546,8 +547,14 @@ button:hover { background: #333; color: #fff; }
       margin: 0 auto 8px auto;
       object-fit: contain;
     }
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
     button {
-      margin: 10px;
       padding: 10px 18px;
       font-size: 0.95em;
       border: 2px solid #333;
@@ -581,6 +588,11 @@ button:hover { background: #333; color: #fff; }
     .download:hover {
       background-color: #333;
       color: #fff;
+    }
+    @media (max-width: 600px) {
+      .button-row {
+        flex-direction: column;
+      }
     }
   </style>
   <script>
@@ -625,14 +637,15 @@ button:hover { background: #333; color: #fff; }
       <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; margin-bottom: 20px;">
     </div>
     <a class="download" href="/roll/{{ sticker }}">← Back to Gallery</a>
-    <h1>Select Photos for Print – Roll {{ sticker }}</h1>
-    {% if show_whole_roll_buttons %}
-      <button onclick="submitWholeRoll('Matte')">Print Whole Roll on 10x15 Matte</button>
-      <button onclick="submitWholeRoll('Glossy')">Print Whole Roll on 10x15 Glossy</button>
-      <button onclick="submitWholeRoll('Luster')">Print Whole Roll on 10x15 Luster</button>
-    {% endif %}
-    <button onclick="document.querySelector('form').submit();">Order Selected Prints</button>
-    <p class="note">Or select specific pictures to print below</p>
+    <div class="button-row">
+      {% if show_whole_roll_buttons %}
+        <button onclick="submitWholeRoll('Matte')">Print Whole Roll on 10x15 Matte (15 euro)</button>
+        <button onclick="submitWholeRoll('Glossy')">Print Whole Roll on 10x15 Glossy (15 euro)</button>
+        <button onclick="submitWholeRoll('Luster')">Print Whole Roll on 10x15 Luster (15 euro)</button>
+      {% endif %}
+      <button onclick="document.querySelector('form').submit();">Order Selected Prints</button>
+    </div>
+    <p class="note">Select your prints below</p>
 
     <form method="POST" action="/roll/{{ sticker }}/submit-order">
       <div class="grid">
