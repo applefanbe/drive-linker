@@ -74,6 +74,26 @@ def find_airtable_record(twin_sticker):
     records = response.json().get("records", [])
     return records[0] if records else None
 
+# === Airtable: Add to Print Orders Table ===
+def create_print_order_record(sticker, client_email, submitted_order, mollie_id):
+    url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Print%20Orders"
+    headers = {
+        "Authorization": f"Bearer {AIRTABLE_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    fields = {
+        "Sticker": sticker,
+        "Client Email": client_email,
+        "Order JSON": json.dumps(submitted_order),
+        "Mollie ID": mollie_id,
+        "Paid": False
+    }
+    response = requests.post(url, headers=headers, json={"fields": fields})
+    if response.status_code == 200:
+        log("✅ Print order stored in Airtable.")
+    else:
+        log(f"❌ Failed to store print order: {response.text}")
+
 # === Email ===
 def generate_password(length=8):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
@@ -778,7 +798,6 @@ def finalize_order(sticker):
                 'border': border
             })
 
-            # Calculate total price
             if size == '10x15':
                 count_10x15 += 1
                 total += 0.75
@@ -791,15 +810,11 @@ def finalize_order(sticker):
             elif size == 'A3':
                 total += 12.0
 
-    # Apply price cap
-    if count_10x15 >= 20:
-        capped_total = min(total, 15.0)
-    else:
-        capped_total = total
+    capped_total = min(total, 15.0) if count_10x15 >= 20 else total
 
-    # Create payment in Mollie
     description = f"Print order for roll {sticker}"
     redirect_url = f"https://scans.gilplaquet.com/roll/{sticker}/thank-you"
+    webhook_url = "https://scans.gilplaquet.com/mollie-webhook"
 
     try:
         payment = mollie_client.payments.create({
@@ -809,13 +824,17 @@ def finalize_order(sticker):
             },
             "description": description,
             "redirectUrl": redirect_url,
-            "webhookUrl": "https://scans.gilplaquet.com/mollie-webhook",
+            "webhookUrl": webhook_url,
             "metadata": {
-                "sticker": sticker,
-                "order": submitted_order
+                "sticker": sticker
             }
         })
+
+        client_email = record['fields'].get("Client Email")
+        create_print_order_record(sticker, client_email, submitted_order, payment.id)
+
         return redirect(payment.checkout_url)
+
     except Exception as e:
         return f"Payment creation failed: {e}", 500
 
@@ -868,21 +887,32 @@ def mollie_webhook():
     try:
         payment = mollie_client.payments.get(payment_id)
         if not payment.is_paid():
-            return "Payment not completed", 200  # return 200 to acknowledge receipt
+            return "Payment not completed", 200
 
-        sticker = payment.metadata.get("sticker")
-        submitted_order = payment.metadata.get("order", [])
+        # Look up Print Order record from Airtable by Mollie ID
+        airtable_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Print%20Orders"
+        headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
+        formula = f"{{Mollie ID}}='{payment_id}'"
+        response = requests.get(airtable_url, headers=headers, params={"filterByFormula": formula})
+        records = response.json().get("records", [])
+        if not records:
+            return "Print order not found", 404
 
-        record = find_airtable_record(sticker)
-        if not record:
-            return "Record not found", 404
+        order_record = records[0]
+        fields = order_record["fields"]
+        sticker = fields.get("Sticker")
+        client_email = fields.get("Client Email")
+        client_name = fields.get("Client Name", "Client")
+        submitted_order = json.loads(fields.get("Order JSON", "[]"))
 
-        client_email = record['fields'].get("Client Email")
-        client_name = record['fields'].get("Client Name", "Unknown")
+        # Mark as Paid
+        update_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Print%20Orders/{order_record['id']}"
+        update_response = requests.patch(update_url, headers=headers, json={"fields": {"Paid": True}})
 
+        # Send confirmation email
         email_body = f"<p>Hi {client_name},</p><p>Thank you for your print order. Here’s a summary of what you selected for roll <strong>{sticker}</strong>:</p><ul>"
         for item in submitted_order:
-            email_body += f"<li><img src='{item['url']}' width='100'><br>Size: {item['size']}, Paper: {item['paper']}, Border: {item['border']}</li>"
+            email_body += f"<li><img src='{item['url']}' width='100'><br>Size: {item['size']}, Paper: {item['paper']}, Include Scan Border: {item['border']}</li>"
         email_body += "</ul><p>We’ll start printing soon!</p>"
 
         msg = EmailMessage()
