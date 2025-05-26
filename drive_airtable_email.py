@@ -1110,130 +1110,129 @@ def thank_you(sticker):
     </body>
     </html>
     """)
+@app.route('/mollie-webhook', methods=['POST'])
+def mollie_webhook():
+    mollie_api_key = os.getenv("MOLLIE_API_KEY")
+    if not mollie_api_key:
+        return "API key missing", 500
 
- @app.route('/mollie-webhook', methods=['POST'])
-    def mollie_webhook():
-        mollie_api_key = os.getenv("MOLLIE_API_KEY")
-        if not mollie_api_key:
-            return "API key missing", 500
-    
-        from mollie.api.client import Client as MollieClient
-        mollie_client = MollieClient()
-        mollie_client.set_api_key(mollie_api_key)
-    
-        payment_id = request.form.get("id")
-        if not payment_id:
-            return "Missing payment ID", 400
-    
-        try:
-            payment = mollie_client.payments.get(payment_id)
-            if not payment.is_paid():
-                return "Payment not completed", 200
-    
-            airtable_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
-            headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
-            formula = f"{{Mollie ID}}='{payment_id}'"
-            response = requests.get(airtable_url, headers=headers, params={"filterByFormula": formula})
-            records = response.json().get("records", [])
-            if not records:
-                return "Order not found", 404
-    
-            record = records[0]
-            fields = record["fields"]
-            sticker = fields.get("Twin Sticker")
-            client_email = fields.get("Client Email")
-            client_name = fields.get("Client Name", "Client")
-            submitted_order = json.loads(fields.get("Order JSON", "[]"))
-    
-            # Mark as Paid
-            update_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}/{record['id']}"
-            update_response = requests.patch(update_url, headers=headers, json={"fields": {"Paid": True}})
-    
-            # Calculate pricing breakdown
-            type_counter = {}
-            subtotal = 0.0
-            count_10x15 = 0
-            tax_rate = 0.21
-    
-            for item in submitted_order:
-                size = item['size']
-                paper = item['paper']
-                price = 0.0
-                if size == '10x15':
-                    price = 0.75
-                    count_10x15 += 1
-                elif size == 'A6': price = 1.5
-                elif size == 'A5': price = 3.0
-                elif size == 'A4': price = 6.0
-                elif size == 'A3': price = 12.0
-                
-                key = f"{size} - {paper}"
-                type_counter[key] = type_counter.get(key, 0) + 1
-                subtotal += price
-    
-            if count_10x15 >= 20:
-                subtotal = min(subtotal, 15.0)
-    
-            tax = subtotal * tax_rate / (1 + tax_rate)
-            total = subtotal
-    
-            # Compose customer email
-            email_body = f"""
-            <div style='text-align: center;'>
-              <img src='https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png' style='max-width: 200px; margin-bottom: 20px;'>
-            </div>
-            <div style='font-family: Helvetica, sans-serif; font-size: 16px;'>
-            <p>Hi there,</p>
-            <p>Thank you for your print order. Here’s a summary of what you selected for roll <strong>{sticker}</strong>:</p>
-            <ul>
-            """
-            for item in submitted_order:
-                email_body += f"<li><img src='{item['url']}' width='100'><br>{item['size']} – {item['paper']}, Include Scan Border: {item['border']}</li>"
-            email_body += "</ul>"
-            email_body += f"<p><strong>Delivery Method:</strong> {fields.get('Delivery Method', 'N/A')}</p>"
-            email_body += "<p><strong>Order Breakdown:</strong></p><ul>"
-            for type, count in type_counter.items():
-                email_body += f"<li>{count} × {type}</li>"
-            email_body += f"</ul><p>Subtotal (excl. VAT): €{subtotal - tax:.2f}<br>VAT (21%): €{tax:.2f}<br><strong>Total: €{total:.2f}</strong></p>"
-            email_body += "<p>The order was successfully paid through Mollie.</p><p>We’ll start printing soon!<br>We'll notify you when your prints are ready for pickup at the lab or your drop-off point.</p></div>"
-    
-            msg = EmailMessage()
-            msg["From"] = "Gil Plaquet FilmLab <filmlab@gilplaquet.com>"
-            msg["To"] = client_email
-            msg["Bcc"] = "filmlab@gilplaquet.com"
-            msg["Subject"] = f"Print Order Confirmation – Roll {sticker}"
-            msg.set_content("Your order is confirmed.")
-            msg.add_alternative(f"<html><body>{email_body}</body></html>", subtype="html")
-    
-            with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-                server.starttls()
-                server.login(SMTP_USER, SMTP_PASS)
-                server.send_message(msg)
-    
-            # Internal notification email
-            internal_msg = EmailMessage()
-            internal_msg["From"] = "Gil Plaquet FilmLab <filmlab@gilplaquet.com>"
-            internal_msg["To"] = "filmlab@gilplaquet.com"
-            internal_msg["Subject"] = f"A new print order for roll {sticker}"
-    
-            internal_body = f"<h3>Roll {sticker} – Print Order Summary</h3><ul>"
-            for item in submitted_order:
-                filename = item['url'].split("/")[-1]
-                internal_body += f"<li>{filename}<br>{item['size']} – {item['paper']}, Border: {item['border']}<br><img src='{item['url']}' width='100'></li>"
-            internal_body += "</ul>"
-    
-            internal_msg.set_content("New print order received.")
-            internal_msg.add_alternative(f"<html><body>{internal_body}</body></html>", subtype="html")
-    
-            with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-                server.starttls()
-                server.login(SMTP_USER, SMTP_PASS)
-                server.send_message(internal_msg)
-    
-            return "OK", 200
-    
-        except Exception as e:
-            return f"Webhook error: {e}", 500
+    from mollie.api.client import Client as MollieClient
+    mollie_client = MollieClient()
+    mollie_client.set_api_key(mollie_api_key)
+
+    payment_id = request.form.get("id")
+    if not payment_id:
+        return "Missing payment ID", 400
+
+    try:
+        payment = mollie_client.payments.get(payment_id)
+        if not payment.is_paid():
+            return "Payment not completed", 200
+
+        airtable_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
+        headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
+        formula = f"{{Mollie ID}}='{payment_id}'"
+        response = requests.get(airtable_url, headers=headers, params={"filterByFormula": formula})
+        records = response.json().get("records", [])
+        if not records:
+            return "Order not found", 404
+
+        record = records[0]
+        fields = record["fields"]
+        sticker = fields.get("Twin Sticker")
+        client_email = fields.get("Client Email")
+        client_name = fields.get("Client Name", "Client")
+        submitted_order = json.loads(fields.get("Order JSON", "[]"))
+
+        # Mark as Paid
+        update_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}/{record['id']}"
+        update_response = requests.patch(update_url, headers=headers, json={"fields": {"Paid": True}})
+
+        # Calculate pricing breakdown
+        type_counter = {}
+        subtotal = 0.0
+        count_10x15 = 0
+        tax_rate = 0.21
+
+        for item in submitted_order:
+            size = item['size']
+            paper = item['paper']
+            price = 0.0
+            if size == '10x15':
+                price = 0.75
+                count_10x15 += 1
+            elif size == 'A6': price = 1.5
+            elif size == 'A5': price = 3.0
+            elif size == 'A4': price = 6.0
+            elif size == 'A3': price = 12.0
+
+            key = f"{size} - {paper}"
+            type_counter[key] = type_counter.get(key, 0) + 1
+            subtotal += price
+
+        if count_10x15 >= 20:
+            subtotal = min(subtotal, 15.0)
+
+        tax = subtotal * tax_rate / (1 + tax_rate)
+        total = subtotal
+
+        # Compose customer email
+        email_body = f"""
+        <div style='text-align: center;'>
+          <img src='https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png' style='max-width: 200px; margin-bottom: 20px;'>
+        </div>
+        <div style='font-family: Helvetica, sans-serif; font-size: 16px;'>
+        <p>Hi there,</p>
+        <p>Thank you for your print order. Here’s a summary of what you selected for roll <strong>{sticker}</strong>:</p>
+        <ul>
+        """
+        for item in submitted_order:
+            email_body += f"<li><img src='{item['url']}' width='100'><br>{item['size']} – {item['paper']}, Include Scan Border: {item['border']}</li>"
+        email_body += "</ul>"
+        email_body += f"<p><strong>Delivery Method:</strong> {fields.get('Delivery Method', 'N/A')}</p>"
+        email_body += "<p><strong>Order Breakdown:</strong></p><ul>"
+        for type, count in type_counter.items():
+            email_body += f"<li>{count} × {type}</li>"
+        email_body += f"</ul><p>Subtotal (excl. VAT): €{subtotal - tax:.2f}<br>VAT (21%): €{tax:.2f}<br><strong>Total: €{total:.2f}</strong></p>"
+        email_body += "<p>The order was successfully paid through Mollie.</p><p>We’ll start printing soon!<br>We'll notify you when your prints are ready for pickup at the lab or your drop-off point.</p></div>"
+
+        msg = EmailMessage()
+        msg["From"] = "Gil Plaquet FilmLab <filmlab@gilplaquet.com>"
+        msg["To"] = client_email
+        msg["Bcc"] = "filmlab@gilplaquet.com"
+        msg["Subject"] = f"Print Order Confirmation – Roll {sticker}"
+        msg.set_content("Your order is confirmed.")
+        msg.add_alternative(f"<html><body>{email_body}</body></html>", subtype="html")
+
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASS)
+            server.send_message(msg)
+
+        # Internal notification email
+        internal_msg = EmailMessage()
+        internal_msg["From"] = "Gil Plaquet FilmLab <filmlab@gilplaquet.com>"
+        internal_msg["To"] = "filmlab@gilplaquet.com"
+        internal_msg["Subject"] = f"A new print order for roll {sticker}"
+
+        internal_body = f"<h3>Roll {sticker} – Print Order Summary</h3><ul>"
+        for item in submitted_order:
+            filename = item['url'].split("/")[-1]
+            internal_body += f"<li>{filename}<br>{item['size']} – {item['paper']}, Border: {item['border']}<br><img src='{item['url']}' width='100'></li>"
+        internal_body += "</ul>"
+
+        internal_msg.set_content("New print order received.")
+        internal_msg.add_alternative(f"<html><body>{internal_body}</body></html>", subtype="html")
+
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASS)
+            server.send_message(internal_msg)
+
+        return "OK", 200
+
+    except Exception as e:
+        return f"Webhook error: {e}", 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
