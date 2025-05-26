@@ -172,9 +172,13 @@ You can view and download your scans at the link below:
 
 To access your gallery, use the password: {password}
 
-This link will remain active for 7 days.
+Prints can be ordered through this link:
+
+{order_link}
 
 Thanks for sending in your film!
+
+These links will remain active for 7 days.
 
 Gil Plaquet
 www.gilplaquet.com
