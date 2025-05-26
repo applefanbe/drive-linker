@@ -209,7 +209,7 @@ def gallery(sticker):
     expected_password = record['fields'].get("Password")
     if request.method == "POST":
         if request.form.get("password") != expected_password:
-        return "Incorrect password.", 403
+            return "Incorrect password.", 403
     else:
         session[f"access_{sticker}"] = True
 
