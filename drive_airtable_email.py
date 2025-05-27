@@ -692,14 +692,14 @@ def submit_order(sticker):
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
+  <meta charset=\"UTF-8\">
   <title>Confirm Order – Roll {{ sticker }}</title>
   <style>
     body { font-family: Helvetica, sans-serif; background: #fff; color: #333; margin: 0; padding: 0; }
     .container { max-width: 960px; margin: 0 auto; padding: 40px 20px; text-align: center; }
     h1 { margin-bottom: 0.5em; }
     .controls { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-bottom: 30px; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 40px; }
     .grid-item { border: 1px solid #ccc; border-radius: 6px; padding: 12px; text-align: center; }
     .grid-item img { max-height: 180px; width: auto; margin-bottom: 10px; }
     .grid-item .selectors { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
@@ -728,9 +728,9 @@ def submit_order(sticker):
       const paper = document.getElementById('applyPaper').value;
       const border = document.getElementById('applyBorder').value;
       document.querySelectorAll('[data-row]').forEach(row => {
-        row.querySelector('.size').value = size;
-        row.querySelector('.paper').value = paper;
-        row.querySelector('.border').value = border;
+        if (size !== '—') row.querySelector('.size').value = size;
+        if (paper !== '—') row.querySelector('.paper').value = paper;
+        if (border !== '—') row.querySelector('.border').value = border;
         updatePrice(row);
       });
       updateTotal();
@@ -793,6 +793,7 @@ def submit_order(sticker):
       <div class="controls">
         <label>Size:
           <select id="applySize">
+            <option>—</option>
             <option>10x15</option>
             <option>A6</option>
             <option>A5</option>
@@ -802,20 +803,22 @@ def submit_order(sticker):
         </label>
         <label>Paper:
           <select id="applyPaper">
+            <option>—</option>
             <option>Glossy</option>
             <option>Matte</option>
             <option>Luster</option>
           </select>
         </label>
-        <label>Include Scan Border:
+        <label>Scan Border:
           <select id="applyBorder">
-            <option>No</option>
-            <option>Yes</option>
+            <option>—</option>
+            <option value="No">No Scan Border</option>
+            <option value="Yes">Print Scan Border</option>
           </select>
         </label>
         <button type="button" onclick="applyToAll()">Apply to All</button>
       </div>
-      <div class="grid" style="margin-bottom: 30px;">
+      <div class="grid">
         {% for item in submitted_order %}
           <div class="grid-item" data-row>
             <img src="{{ item.url }}">
@@ -835,7 +838,7 @@ def submit_order(sticker):
               <select name="order[{{ loop.index0 }}][border]" class="border">
                 <option value="No" {% if item.border == 'No' %}selected{% endif %}>No Scan Border</option>
                 <option value="Yes" {% if item.border == 'Yes' %}selected{% endif %}>Print Scan Border</option>
-            </select>
+              </select>
             </div>
             <div class="price-tag">€0.00</div>
             <input type="hidden" name="order[{{ loop.index0 }}][url]" value="{{ item.url }}">
