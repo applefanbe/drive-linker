@@ -642,15 +642,16 @@ def order_page(sticker):
         <button type="submit" id="topOrderButton">Order Selected Prints</button>
       </div>
       <p class="note">Select your prints below</p>
-      <div class="grid">
-        {% for url in image_urls %}
-          <div class="grid-item">
-            <img src="{{ url }}" alt="Scan {{ loop.index }}">
-            <input type="checkbox" name="selected_images" value="{{ url }}">
-          </div>
-        {% endfor %}
-      </div>
-      <button id="nextButton" type="submit">Order Selected Prints</button>
+      <div class="grid" style="margin-bottom: 30px;">
+          {% for url in image_urls %}
+            <div class="grid-item">
+              <img src="{{ url }}" alt="Scan {{ loop.index }}">
+              <input type="checkbox" name="selected_images" value="{{ url }}">
+            </div>
+          {% endfor %}
+        </div>
+        <div style="margin-bottom: 40px;"></div>
+        <button id="nextButton" type="submit">Order Selected Prints</button>
     </form>
   </div>
 </body>
