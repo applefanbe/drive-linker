@@ -479,10 +479,10 @@ button:hover { background: #333; color: #fff; }
 <div class=\"container\">
   <img src=\"https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png\" alt=\"Logo\" style=\"max-width:200px; margin-bottom:20px;\">
   <h2>Enter password to access Roll {{ sticker }}</h2>
-  <form method="POST" style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
-    <input type="password" name="password" placeholder="Password" required style="width: 100%; max-width: 300px; padding: 10px; font-size: 1em; border: 1px solid #ccc; border-radius: 4px;">
-    <button type="submit">Submit</button>
-</form>
+  <form method=\"POST\">
+    <input type=\"password\" name=\"password\" placeholder=\"Password\" required>
+    <button type=\"submit\">Submit</button>
+  </form>
 </div>
 </body></html>""", sticker=sticker)
 
@@ -509,7 +509,9 @@ button:hover { background: #333; color: #fff; }
     image_files = [obj["Key"] for obj in result.get("Contents", []) if obj["Key"].lower().endswith(('.jpg', '.jpeg', '.png'))]
     image_urls = [generate_signed_url(f) for f in image_files]
 
-    show_whole_roll_buttons = record['fields'].get("Size") == "35mm"
+    film_size = record['fields'].get("Size", "")
+    show_whole_roll_buttons = film_size == "35mm" and len(image_urls) >= 20
+    show_select_all_button = film_size != "35mm"
 
     return render_template_string("""
 <!DOCTYPE html>
@@ -533,8 +535,13 @@ button:hover { background: #333; color: #fff; }
     }
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      grid-template-columns: repeat(3, 1fr);
       gap: 12px;
+    }
+    @media (max-width: 700px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
     }
     .grid-item {
       border: 1px solid #eee;
@@ -605,7 +612,7 @@ button:hover { background: #333; color: #fff; }
       form.method = 'POST';
       form.action = `/roll/{{ sticker }}/submit-order`;
 
-      document.querySelectorAll('input[name="selected_images"]:checked').forEach((checkbox, index) => {
+      document.querySelectorAll('input[name="selected_images"]').forEach((checkbox, index) => {
         const url = checkbox.value;
         form.innerHTML += `
           <input type="hidden" name="order[${index}][url]" value="${url}">
@@ -617,6 +624,11 @@ button:hover { background: #333; color: #fff; }
 
       document.body.appendChild(form);
       form.submit();
+    }
+
+    function selectAllImages() {
+      document.querySelectorAll('input[name="selected_images"]').forEach(cb => cb.checked = true);
+      updateSubmitState();
     }
 
     function updateSubmitState() {
@@ -646,6 +658,8 @@ button:hover { background: #333; color: #fff; }
           <button type="button" onclick="submitWholeRoll('Matte')">Print Whole Roll on 10x15 Matte (15 euro)</button>
           <button type="button" onclick="submitWholeRoll('Glossy')">Print Whole Roll on 10x15 Glossy (15 euro)</button>
           <button type="button" onclick="submitWholeRoll('Luster')">Print Whole Roll on 10x15 Luster (15 euro)</button>
+        {% elif show_select_all_button %}
+          <button type="button" onclick="selectAllImages()">Select All</button>
         {% endif %}
         <button type="submit" id="topOrderButton">Order Selected Prints</button>
       </div>
@@ -663,7 +677,7 @@ button:hover { background: #333; color: #fff; }
   </div>
 </body>
 </html>
-""", sticker=sticker, image_urls=image_urls, show_whole_roll_buttons=show_whole_roll_buttons)
+""", sticker=sticker, image_urls=image_urls, show_whole_roll_buttons=show_whole_roll_buttons, show_select_all_button=show_select_all_button)
 
 @app.route('/roll/<sticker>/submit-order', methods=['POST'])
 def submit_order(sticker):
