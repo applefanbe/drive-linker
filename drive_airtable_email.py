@@ -645,8 +645,10 @@ def order_page(sticker):
       <div class="grid" style="margin-bottom: 30px;">
           {% for url in image_urls %}
             <div class="grid-item">
-              <img src="{{ url }}" alt="Scan {{ loop.index }}">
-              <input type="checkbox" name="selected_images" value="{{ url }}">
+              <label style="cursor: pointer; display: block;">
+                <img src="{{ url }}" alt="Scan {{ loop.index }}">
+                <input type="checkbox" name="selected_images" value="{{ url }}" style="margin-top: 6px;">
+              </label>
             </div>
           {% endfor %}
         </div>
