@@ -815,7 +815,7 @@ def submit_order(sticker):
         </label>
         <button type="button" onclick="applyToAll()">Apply to All</button>
       </div>
-      <div class="grid">
+      <div class="grid" style="margin-bottom: 30px;">
         {% for item in submitted_order %}
           <div class="grid-item" data-row>
             <img src="{{ item.url }}">
@@ -833,15 +833,16 @@ def submit_order(sticker):
                 <option {% if item.paper == 'Luster' %}selected{% endif %}>Luster</option>
               </select>
               <select name="order[{{ loop.index0 }}][border]" class="border">
-                <option {% if item.border == 'No' %}selected{% endif %}>No</option>
-                <option {% if item.border == 'Yes' %}selected{% endif %}>Yes</option>
-              </select>
+                <option value="No" {% if item.border == 'No' %}selected{% endif %}>No Scan Border</option>
+                <option value="Yes" {% if item.border == 'Yes' %}selected{% endif %}>Print Scan Border</option>
+            </select>
             </div>
             <div class="price-tag">€0.00</div>
             <input type="hidden" name="order[{{ loop.index0 }}][url]" value="{{ item.url }}">
           </div>
         {% endfor %}
       </div>
+      <div style="margin-bottom: 40px;"></div>
       <button type="submit">Review & Pay</button>
     </form>
   </div>
