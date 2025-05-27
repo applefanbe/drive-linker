@@ -323,8 +323,8 @@ def gallery(sticker):
           <div class="container">
             <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo">
             <h2>Enter password to access Roll {{ sticker }}</h2>
-            <form method="POST">
-              <input type="password" name="password" placeholder="Password" required>
+            <form method="POST" style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
+              <input type="password" name="password" placeholder="Password" required style="width: 100%; max-width: 300px; padding: 10px; font-size: 1em; border: 1px solid #ccc; border-radius: 4px;">
               <button type="submit">Submit</button>
             </form>
           </div>
@@ -479,10 +479,10 @@ button:hover { background: #333; color: #fff; }
 <div class=\"container\">
   <img src=\"https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png\" alt=\"Logo\" style=\"max-width:200px; margin-bottom:20px;\">
   <h2>Enter password to access Roll {{ sticker }}</h2>
-  <form method=\"POST\">
-    <input type=\"password\" name=\"password\" placeholder=\"Password\" required>
-    <button type=\"submit\">Submit</button>
-  </form>
+  <form method="POST" style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
+    <input type="password" name="password" placeholder="Password" required style="width: 100%; max-width: 300px; padding: 10px; font-size: 1em; border: 1px solid #ccc; border-radius: 4px;">
+    <button type="submit">Submit</button>
+</form>
 </div>
 </body></html>""", sticker=sticker)
 
