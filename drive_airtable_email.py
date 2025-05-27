@@ -190,7 +190,7 @@ def main():
         password = generate_password()
         update_airtable_record(record['id'], {"Password": password})
 
-        gallery_link = f"https://scans.gilplaquet.com/roll/{twin_sticker}"
+        order_link = f"https://scans.gilplaquet.com/roll/{twin_sticker}"
         subject = f"Your Scans Are Ready - Roll {twin_sticker}"
         body = f"""
 Hi there,
