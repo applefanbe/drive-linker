@@ -941,8 +941,14 @@ def review_order(sticker):
       display: block;
       margin: 0 auto 10px auto;
     }
-    button {
+    .button-row {
       margin-top: 20px;
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    button {
       padding: 12px 24px;
       font-size: 1em;
       border: 2px solid #333;
@@ -971,7 +977,20 @@ def review_order(sticker):
           <input type="hidden" name="order[{{ loop.index0 }}][paper]" value="{{ item.paper }}">
           <input type="hidden" name="order[{{ loop.index0 }}][border]" value="{{ item.border }}">
         {% endfor %}
-        <button type="submit">Pay with Mollie</button>
+        <div class="button-row">
+          <button type="submit">Pay with Mollie</button>
+        </div>
+      </form>
+      <form method="POST" action="/roll/{{ sticker }}/submit-order">
+        {% for item in submitted_order %}
+          <input type="hidden" name="order[{{ loop.index0 }}][url]" value="{{ item.url }}">
+          <input type="hidden" name="order[{{ loop.index0 }}][size]" value="{{ item.size }}">
+          <input type="hidden" name="order[{{ loop.index0 }}][paper]" value="{{ item.paper }}">
+          <input type="hidden" name="order[{{ loop.index0 }}][border]" value="{{ item.border }}">
+        {% endfor %}
+        <div class="button-row">
+          <button type="submit">← Back to Edit</button>
+        </div>
       </form>
       <h3 style="margin-top:30px;">Order Breakdown:</h3>
       {% for type, count in type_counter.items() %}
