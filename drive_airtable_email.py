@@ -354,7 +354,7 @@ def gallery(sticker):
     result = s3.list_objects_v2(Bucket=B2_BUCKET_NAME, Prefix=prefix)
     image_files = [obj["Key"] for obj in result.get("Contents", []) if obj["Key"].lower().endswith(('.jpg', '.jpeg', '.png'))]
     image_urls = [generate_signed_url(f) for f in image_files]
-    zip_url = generate_signed_url(f"{prefix}Archive.zip")
+    zip_url = generate_signed_url(f"{prefix}{sticker}.zip")
 
     return render_template_string("""
     <!DOCTYPE html>
