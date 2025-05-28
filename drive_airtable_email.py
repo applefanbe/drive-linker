@@ -280,7 +280,7 @@ def gallery(sticker):
     t = get_translation(lang)
     resp = make_response(render_template("password.html", lang=lang, t=t))
     resp.set_cookie("lang", lang)
-    return resp, sticker=sticker)
+    return resp
 
     def find_folder_by_suffix(suffix):
         folders = list_roll_folders()
@@ -310,11 +310,7 @@ def gallery(sticker):
     t = get_translation(lang)
     resp = make_response(render_template("gallery.html", lang=lang, t=t))
     resp.set_cookie("lang", lang)
-    return resp, 
-    sticker=sticker, 
-    image_urls=image_urls, 
-    zip_url=zip_url, 
-    current_year=datetime.now().year,
+    return render_template("gallery.html", sticker=sticker, image_urls=image_urls, zip_url=zip_url, current_year=current_year, t=t, lang=lang)datetime.now().year,
     record=record  # ✅ this is required for roll-info to work
     )
 
@@ -350,7 +346,7 @@ def order_page(sticker):
     t = get_translation(lang)
     resp = make_response(render_template("password_1.html", lang=lang, t=t))
     resp.set_cookie("lang", lang)
-    return resp, sticker=sticker)
+    return resp
 
     def find_folder_by_suffix(suffix):
         folders = list_roll_folders()
@@ -385,10 +381,7 @@ def order_page(sticker):
     t = get_translation(lang)
     resp = make_response(render_template("gallery_1.html", lang=lang, t=t))
     resp.set_cookie("lang", lang)
-    return resp, sticker=sticker, image_urls=image_urls,
-       show_whole_roll_buttons=show_whole_roll_buttons,
-       show_select_all_button=show_select_all_button,
-       allow_border_option=allow_border_option)
+    return render_template("order.html", sticker=sticker, image_urls=image_urls, show_whole_roll_buttons=show_whole_roll_buttons, show_select_all_button=show_select_all_button, allow_border_option=allow_border_option, t=t, lang=lang)allow_border_option)
 
 @app.route('/roll/<sticker>/submit-order', methods=['POST'])
 def submit_order(sticker):
@@ -427,7 +420,7 @@ def submit_order(sticker):
     t = get_translation(lang)
     resp = make_response(render_template("order.html", lang=lang, t=t))
     resp.set_cookie("lang", lang)
-    return resp, sticker=sticker, submitted_order=submitted_order, allow_border_option=allow_border_option)
+    return render_template("submit_order.html", sticker=sticker, submitted_order=submitted_order, allow_border_option=allow_border_option, t=t, lang=lang)allow_border_option)
 
 @app.route('/roll/<sticker>/review-order', methods=['POST'])
 def review_order(sticker):
@@ -480,7 +473,7 @@ def review_order(sticker):
     t = get_translation(lang)
     resp = make_response(render_template("order_1.html", lang=lang, t=t))
     resp.set_cookie("lang", lang)
-    return resp, sticker=sticker, submitted_order=submitted_order, total=total, tax=tax, type_counter=type_counter, allow_border=allow_border)
+    return render_template("review_order.html", sticker=sticker, submitted_order=submitted_order, total=total, tax=tax, type_counter=type_counter, allow_border=allow_border, t=t, lang=lang)allow_border)
 
 @app.route('/roll/<sticker>/finalize-order', methods=['POST'])
 def finalize_order(sticker):

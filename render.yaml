@@ -1,21 +1,7 @@
 services:
   - type: web
-    name: drive-linker
+    name: film-scan-app
     env: python
-    buildCommand: ""
-    startCommand: "python drive_airtable_email.py"
-    envVars:
-      - key: AIRTABLE_API_KEY
-        fromEnv: AIRTABLE_API_KEY
-      - key: AIRTABLE_BASE_ID
-        fromEnv: AIRTABLE_BASE_ID
-      - key: AIRTABLE_TABLE_NAME
-        fromEnv: AIRTABLE_TABLE_NAME
-      - key: SMTP_USER
-        fromEnv: SMTP_USER
-      - key: SMTP_PASS
-        fromEnv: SMTP_PASS
-      - key: DRIVE_FOLDER_ID
-        fromEnv: DRIVE_FOLDER_ID
-      - key: TRIGGER_TOKEN
-        fromEnv: TRIGGER_TOKEN
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn drive_airtable_email_clean:app
