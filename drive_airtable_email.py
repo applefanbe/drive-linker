@@ -310,9 +310,11 @@ def gallery(sticker):
     t = get_translation(lang)
     resp = make_response(render_template("gallery.html", lang=lang, t=t))
     resp.set_cookie("lang", lang)
-    return render_template("gallery.html", sticker=sticker, image_urls=image_urls, zip_url=zip_url, current_year=current_year, t=t, lang=lang)datetime.now().year,
-    record=record  # ✅ this is required for roll-info to work
-    )
+    lang = request.args.get("lang") or request.cookies.get("lang", "en")
+    t = get_translation(lang)
+    resp = make_response(render_template(sticker=sticker, image_urls=image_urls, zip_url=zip_url, current_year=datetime.now().year, record=record  # ✅ this is required for roll-info to work, ))
+    resp.set_cookie("lang", lang)
+    return resp
 
 @app.route('/roll/<sticker>/order', methods=['GET', 'POST'])
 def order_page(sticker):
@@ -381,7 +383,11 @@ def order_page(sticker):
     t = get_translation(lang)
     resp = make_response(render_template("gallery_1.html", lang=lang, t=t))
     resp.set_cookie("lang", lang)
-    return render_template("order.html", sticker=sticker, image_urls=image_urls, show_whole_roll_buttons=show_whole_roll_buttons, show_select_all_button=show_select_all_button, allow_border_option=allow_border_option, t=t, lang=lang)allow_border_option)
+    lang = request.args.get("lang") or request.cookies.get("lang", "en")
+    t = get_translation(lang)
+    resp = make_response(render_template(show_whole_roll_buttons=show_whole_roll_buttons, show_select_all_button=show_select_all_button, allow_border_option=allow_border_option))
+    resp.set_cookie("lang", lang)
+    return resp
 
 @app.route('/roll/<sticker>/submit-order', methods=['POST'])
 def submit_order(sticker):
@@ -420,9 +426,11 @@ def submit_order(sticker):
     t = get_translation(lang)
     resp = make_response(render_template("order.html", lang=lang, t=t))
     resp.set_cookie("lang", lang)
-    return render_template("submit_order.html", sticker=sticker, submitted_order=submitted_order, allow_border_option=allow_border_option, t=t, lang=lang)allow_border_option)
-
-@app.route('/roll/<sticker>/review-order', methods=['POST'])
+    lang = request.args.get("lang") or request.cookies.get("lang", "en")
+    t = get_translation(lang)
+    resp = make_response(render_template(@app.route('/roll/<sticker>/review-order', methods=['POST']))
+    resp.set_cookie("lang", lang)
+    return resp
 def review_order(sticker):
     record = find_airtable_record(sticker)
     if not record:
@@ -473,9 +481,11 @@ def review_order(sticker):
     t = get_translation(lang)
     resp = make_response(render_template("order_1.html", lang=lang, t=t))
     resp.set_cookie("lang", lang)
-    return render_template("review_order.html", sticker=sticker, submitted_order=submitted_order, total=total, tax=tax, type_counter=type_counter, allow_border=allow_border, t=t, lang=lang)allow_border)
-
-@app.route('/roll/<sticker>/finalize-order', methods=['POST'])
+    lang = request.args.get("lang") or request.cookies.get("lang", "en")
+    t = get_translation(lang)
+    resp = make_response(render_template(@app.route('/roll/<sticker>/finalize-order', methods=['POST']))
+    resp.set_cookie("lang", lang)
+    return resp
 def finalize_order(sticker):
     from mollie.api.client import Client as MollieClient
 
