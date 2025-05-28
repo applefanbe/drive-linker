@@ -513,71 +513,19 @@ def order_page(sticker):
         return render_template_string("""
         <!DOCTYPE html>
         <html lang="en">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Enter Password – Roll {{ sticker }}</title>
-          <style>
-            body {
-              font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-              background-color: #ffffff;
-              color: #333333;
-              margin: 0;
-              padding: 0;
-              text-align: center;
-            }
-            .container {
-              max-width: 400px;
-              margin: 100px auto;
-              padding: 20px;
-              border: 1px solid #ddd;
-              border-radius: 8px;
-              text-align: center;
-            }
-            img {
-              max-width: 200px;
-              height: auto;
-              margin-bottom: 20px;
-            }
-            h2 {
-              font-size: 1.5em;
-              margin-bottom: 1em;
-            }
-            input[type="password"] {
-              width: 100%;
-              padding: 10px;
-              font-size: 1em;
-              margin-bottom: 1em;
-              border: 1px solid #ccc;
-              border-radius: 4px;
-            }
-            button {
-              padding: 10px 20px;
-              font-size: 1em;
-              border: 2px solid #333;
-              border-radius: 4px;
-              background-color: #fff;
-              color: #333;
-              cursor: pointer;
-              transition: background-color 0.3s ease, color 0.3s ease;
-            }
-            button:hover {
-              background-color: #333;
-              color: #fff;
-            }
-          </style>
+        <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Enter Password – Roll {{ sticker }}</title>
+        <style>body { font-family: Helvetica; text-align: center; margin-top: 100px; }
+        input, button { padding: 10px; font-size: 1em; margin-top: 10px; }</style>
         </head>
         <body>
-          <div class="container">
-            <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo">
-            <h2>Enter password to access Roll {{ sticker }}</h2>
-            <form method="POST" style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
-              <input type="password" name="password" placeholder="Password" required style="width: 100%; max-width: 300px; padding: 10px; font-size: 1em; border: 1px solid #ccc; border-radius: 4px;">
-              <button type="submit">Submit</button>
-            </form>
-          </div>
-        </body>
-        </html>
+          <h2>Enter password to access Roll {{ sticker }}</h2>
+          <form method="POST">
+            <input type="password" name="password" placeholder="Password" required>
+            <br>
+            <button type="submit">Submit</button>
+          </form>
+        </body></html>
         """, sticker=sticker)
 
     def find_folder_by_suffix(suffix):
@@ -604,173 +552,101 @@ def order_page(sticker):
     image_urls = [generate_signed_url(f) for f in image_files]
 
     film_size = record['fields'].get("Size", "")
+    scan_type = record['fields'].get("Scan", "")
     show_whole_roll_buttons = film_size == "35mm" and len(image_urls) >= 20
     show_select_all_button = film_size != "35mm"
+    allow_border_option = "Hires" in scan_type
 
     return render_template_string("""
 <!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Select Prints – Roll {{ sticker }}</title>
-  <style>
-    body {
-      font-family: Helvetica, sans-serif;
-      background-color: #ffffff;
-      color: #333;
-      margin: 0;
-      padding: 0;
-    }
-    .container {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 40px 20px;
-      text-align: center;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 12px;
-    }
-    .grid-item {
-      border: 1px solid #eee;
-      border-radius: 6px;
-      padding: 8px;
-    }
-    .grid-item img {
-      height: 150px;
-      width: auto;
-      display: block;
-      margin: 0 auto 8px auto;
-      object-fit: contain;
-    }
-    .button-row {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-    button {
-      padding: 10px 18px;
-      font-size: 0.95em;
-      border: 2px solid #333;
-      background: #fff;
-      color: #333;
-      cursor: pointer;
-      border-radius: 4px;
-    }
-    button:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-    button:hover:enabled {
-      background: #333;
-      color: #fff;
-    }
-    .note {
-      font-size: 0.95em;
-      margin-top: 10px;
-      color: #666;
-    }
-    .download {
-      display: inline-block;
-      margin-bottom: 20px;
-      padding: 10px 16px;
-      border: 2px solid #333;
-      border-radius: 4px;
-      text-decoration: none;
-      color: #333;
-    }
-    .download:hover {
-      background-color: #333;
-      color: #fff;
-    }
-  </style>
-  <script>
-    function submitWholeRoll(paperType) {
-      if (!confirm(`This will print the entire roll on 10x15 ${paperType} paper. Each print normally costs €0.75. As you've selected 20 or more prints, the total is capped at €15. Continue?`)) {
-        return;
-      }
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = `/roll/{{ sticker }}/submit-order`;
-
-      document.querySelectorAll('input[name="selected_images"]').forEach((checkbox, index) => {
-        const url = checkbox.value;
-        form.innerHTML += `
-          <input type="hidden" name="order[${index}][url]" value="${url}">
-          <input type="hidden" name="order[${index}][size]" value="10x15">
-          <input type="hidden" name="order[${index}][paper]" value="${paperType}">
-          <input type="hidden" name="order[${index}][border]" value="No">
-        `;
-      });
-
-      document.body.appendChild(form);
-      form.submit();
-    }
-
-    function selectAllImages() {
-      document.querySelectorAll('input[name="selected_images"]').forEach(cb => cb.checked = true);
-      updateSubmitState();
-    }
-
-    function deselectAllImages() {
-      document.querySelectorAll('input[name="selected_images"]').forEach(cb => cb.checked = false);
-      updateSubmitState();
-    }
-
-    function updateSubmitState() {
-      const checked = document.querySelectorAll('input[name="selected_images"]:checked').length;
-      document.getElementById('nextButton').disabled = checked === 0;
-      const topBtn = document.getElementById('topOrderButton');
-      if (topBtn) topBtn.disabled = checked === 0;
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-      document.querySelectorAll('input[name="selected_images"]').forEach(input => {
-        input.addEventListener('change', updateSubmitState);
-      });
-      updateSubmitState();
-    });
-  </script>
-</head>
-<body>
-  <div class="container">
-    <div>
-      <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; margin-bottom: 20px;">
+<html><head><meta charset="UTF-8">
+<title>Select Prints – Roll {{ sticker }}</title>
+<style>
+body { font-family: Helvetica; background-color: #fff; color: #333; margin: 0; padding: 0; }
+.container { max-width: 1280px; margin: auto; padding: 40px 20px; text-align: center; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.grid-item { border: 1px solid #eee; border-radius: 6px; padding: 8px; }
+.grid-item img { height: 150px; width: auto; display: block; margin: 0 auto 8px auto; object-fit: contain; }
+.button-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 20px; }
+button { padding: 10px 18px; font-size: 0.95em; border: 2px solid #333; background: #fff; color: #333; cursor: pointer; border-radius: 4px; }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+button:hover:enabled { background: #333; color: #fff; }
+.note { font-size: 0.95em; margin-top: 10px; color: #666; }
+.download { display: inline-block; margin-bottom: 20px; padding: 10px 16px; border: 2px solid #333; border-radius: 4px; text-decoration: none; color: #333; }
+.download:hover { background-color: #333; color: #fff; }
+</style>
+<script>
+function submitWholeRoll(paperType) {
+  if (!confirm(`This will print the entire roll on 10x15 ${paperType} paper. Each print normally costs €0.75. As you've selected 20 or more prints, the total is capped at €15. Continue?`)) return;
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = `/roll/{{ sticker }}/submit-order`;
+  document.querySelectorAll('input[name="selected_images"]').forEach((cb, i) => {
+    const url = cb.value;
+    form.innerHTML += `<input type="hidden" name="order[${i}][url]" value="${url}">`;
+    form.innerHTML += `<input type="hidden" name="order[${i}][size]" value="10x15">`;
+    form.innerHTML += `<input type="hidden" name="order[${i}][paper]" value="${paperType}">`;
+    form.innerHTML += `<input type="hidden" name="order[${i}][border]" value="No">`;
+  });
+  document.body.appendChild(form); form.submit();
+}
+function selectAllImages() {
+  document.querySelectorAll('input[name="selected_images"]').forEach(cb => cb.checked = true);
+  updateSubmitState();
+}
+function deselectAllImages() {
+  document.querySelectorAll('input[name="selected_images"]').forEach(cb => cb.checked = false);
+  updateSubmitState();
+}
+function updateSubmitState() {
+  const count = document.querySelectorAll('input[name="selected_images"]:checked').length;
+  document.getElementById('nextButton').disabled = count === 0;
+  const topBtn = document.getElementById('topOrderButton');
+  if (topBtn) topBtn.disabled = count === 0;
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('input[name="selected_images"]').forEach(input => {
+    input.addEventListener('change', updateSubmitState);
+  });
+  updateSubmitState();
+});
+</script></head><body>
+<div class="container">
+  <div><img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; margin-bottom: 20px;"></div>
+  <a class="download" href="/roll/{{ sticker }}">&larr; Back to Gallery</a>
+  <form method="POST" action="/roll/{{ sticker }}/submit-order">
+    <div class="button-row">
+      {% if show_whole_roll_buttons %}
+      <button type="button" onclick="submitWholeRoll('Matte')">Print Whole Roll on 10x15 Matte (€15)</button>
+      <button type="button" onclick="submitWholeRoll('Glossy')">Print Whole Roll on 10x15 Glossy (€15)</button>
+      <button type="button" onclick="submitWholeRoll('Luster')">Print Whole Roll on 10x15 Luster (€15)</button>
+      {% elif show_select_all_button %}
+      <button type="button" onclick="selectAllImages()">Select All</button>
+      <button type="button" onclick="deselectAllImages()">Deselect All</button>
+      {% endif %}
+      <button type="submit" id="topOrderButton">Order Selected Prints</button>
     </div>
-    <a class="download" href="/roll/{{ sticker }}">← Back to Gallery</a>
-    <form method="POST" action="/roll/{{ sticker }}/submit-order">
-      <div class="button-row">
-        {% if show_whole_roll_buttons %}
-          <button type="button" onclick="submitWholeRoll('Matte')">Print Whole Roll on 10x15 Matte (15 euro)</button>
-          <button type="button" onclick="submitWholeRoll('Glossy')">Print Whole Roll on 10x15 Glossy (15 euro)</button>
-          <button type="button" onclick="submitWholeRoll('Luster')">Print Whole Roll on 10x15 Luster (15 euro)</button>
-        {% elif show_select_all_button %}
-          <button type="button" onclick="selectAllImages()">Select All</button>
-          <button type="button" onclick="deselectAllImages()">Deselect All</button>
-        {% endif %}
-        <button type="submit" id="topOrderButton">Order Selected Prints</button>
+    <p class="note">Select your prints below</p>
+    <div class="grid">
+      {% for url in image_urls %}
+      <div class="grid-item">
+        <label style="cursor: pointer; display: block;">
+          <img src="{{ url }}" alt="Scan {{ loop.index }}">
+          <input type="checkbox" name="selected_images" value="{{ url }}" style="margin-top: 6px;">
+        </label>
       </div>
-      <p class="note">Select your prints below</p>
-      <div class="grid" style="margin-bottom: 30px;">
-          {% for url in image_urls %}
-            <div class="grid-item">
-              <label style="cursor: pointer; display: block;">
-                <img src="{{ url }}" alt="Scan {{ loop.index }}">
-                <input type="checkbox" name="selected_images" value="{{ url }}" style="margin-top: 6px;">
-              </label>
-            </div>
-          {% endfor %}
-        </div>
-        <div style="margin-bottom: 40px;"></div>
-        <button id="nextButton" type="submit">Order Selected Prints</button>
-    </form>
-  </div>
+      {% endfor %}
+    </div>
+    <div style="margin: 40px 0;"></div>
+    <button id="nextButton" type="submit">Order Selected Prints</button>
+  </form>
+</div>
 </body>
 </html>
-""", sticker=sticker, image_urls=image_urls, show_whole_roll_buttons=show_whole_roll_buttons, show_select_all_button=show_select_all_button)
+    """, sticker=sticker, image_urls=image_urls,
+       show_whole_roll_buttons=show_whole_roll_buttons,
+       show_select_all_button=show_select_all_button,
+       allow_border_option=allow_border_option)
 
 @app.route('/roll/<sticker>/submit-order', methods=['POST'])
 def submit_order(sticker):
