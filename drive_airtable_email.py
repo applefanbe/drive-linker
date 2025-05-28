@@ -467,7 +467,26 @@ def order_page(sticker):
         password_ok = False
 
     if not password_ok:
-        return render_template_string("Password form HTML here...", sticker=sticker)
+        return render_template_string("""
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Enter Password</title>
+          <style>
+            body { font-family: Helvetica, sans-serif; background: #fff; padding: 40px; text-align: center; }
+            input, button { font-size: 1em; padding: 10px; margin: 5px; }
+            form { display: inline-block; margin-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <h2>Enter Password for Roll {{ sticker }}</h2>
+          <form method="POST">
+            <input type="password" name="password" placeholder="Password" required>
+            <button type="submit">Submit</button>
+          </form>
+        </body>
+        </html>
+        """, sticker=sticker)
 
     def find_folder_by_suffix(suffix):
         folders = list_roll_folders()
