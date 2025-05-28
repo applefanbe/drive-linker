@@ -1,0 +1,17 @@
+<div class="lang-switcher">
+  <a href="?lang=en">EN</a> | <a href="?lang=fr">FR</a> | <a href="?lang=nl">NL</a>
+</div>
+
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <ul class="flashes">
+    {% for message in messages %}
+      <li>{{ message }}</li>
+    {% endfor %}
+    </ul>
+  {% endif %}
+{% endwith %}
+
+<h1>{{ t["review_title"] }}</h1>
+<p>{{ t["price_total"] }}: €XX.XX</p>
+<button>{{ t["pay_now"] }}</button>

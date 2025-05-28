@@ -12,3 +12,4 @@ processed_folders.txt
 # Optional: ignore virtual environments
 env/
 venv/
+.DS_Store
