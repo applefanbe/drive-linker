@@ -1,3 +1,187 @@
+
+import os
+import smtplib
+import requests
+import base64
+import sys
+import random
+import string
+import time
+import json
+from datetime import datetime
+from email.message import EmailMessage
+from flask import Flask, request, render_template_string, session, redirect, url_for, make_response, flash
+import boto3
+from botocore.client import Config
+from urllib.parse import quote
+from mollie.api.client import Client as MollieClient
+
+# === Configuration ===
+AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
+AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID")
+AIRTABLE_TABLE_NAME = os.getenv("AIRTABLE_TABLE_NAME")
+SMTP_SERVER = os.getenv("SMTP_SERVER")
+SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
+SMTP_USER = os.getenv("SMTP_USER")
+SMTP_PASS = os.getenv("SMTP_PASS")
+TRIGGER_TOKEN = os.getenv("TRIGGER_TOKEN")
+STATE_FILE = "processed_folders.txt"
+S3_ACCESS_KEY_ID = os.getenv("S3_ACCESS_KEY_ID")
+S3_SECRET_ACCESS_KEY = os.getenv("S3_SECRET_ACCESS_KEY")
+S3_ENDPOINT_URL = os.getenv("S3_ENDPOINT_URL")
+B2_BUCKET_NAME = os.getenv("B2_BUCKET_NAME")
+MOLLIE_API_KEY = os.getenv("MOLLIE_API_KEY")
+
+app = Flask(__name__)
+app.secret_key = os.getenv("SECRET_KEY", "fallback-secret")
+
+from translations import translations
+def get_translation(lang_code):
+    return translations.get(lang_code, translations["en"])
+
+
+# === Clients (module-level) ===
+s3 = boto3.client(
+    's3',
+    aws_access_key_id=S3_ACCESS_KEY_ID,
+    aws_secret_access_key=S3_SECRET_ACCESS_KEY,
+    endpoint_url=S3_ENDPOINT_URL,
+    config=Config(signature_version='s3v4')
+)
+
+smtp = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+smtp.starttls()
+smtp.login(SMTP_USER, SMTP_PASS)
+
+mollie_client = MollieClient()
+mollie_client.set_api_key(MOLLIE_API_KEY)
+
+# === Processed folder cache ===
+try:
+    with open(STATE_FILE, "r") as f:
+        processed_folders = set(line.strip() for line in f if line.strip())
+except FileNotFoundError:
+    processed_folders = set()
+
+import atexit
+@atexit.register
+def save_processed_folders():
+    with open(STATE_FILE, "w") as f:
+        for folder in sorted(processed_folders):
+            f.write(folder + "\n")
+
+
+def batch_update_airtable_records(updates):
+    url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
+    headers = {
+        "Authorization": f"Bearer {AIRTABLE_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    for i in range(0, len(updates), 10):
+        batch = {"records": updates[i:i+10]}
+        response = requests.patch(url, headers=headers, json=batch)
+        if not response.ok:
+            log(f"Failed batch update: {response.text}")
+
+
+shared_assets = """<style>
+            body {
+              font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+              background-color: #ffffff;
+              color: #333333;
+              margin: 0;
+              padding: 0;
+              text-align: center;
+            }
+            .container {
+              max-width: 400px;
+              margin: 100px auto;
+              padding: 20px;
+              border: 1px solid #ddd;
+              border-radius: 8px;
+              text-align: center;
+            }
+            img {
+              max-width: 200px;
+              height: auto;
+              margin-bottom: 20px;
+            }
+            h2 {
+              font-size: 1.5em;
+              margin-bottom: 1em;
+            }
+            input[type="password"] {
+              width: 100%;
+              padding: 10px;
+              font-size: 1em;
+              margin-bottom: 1em;
+              border: 1px solid #ccc;
+              border-radius: 4px;
+            }
+            button {
+              padding: 10px 20px;
+              font-size: 1em;
+              border: 2px solid #333;
+              border-radius: 4px;
+              background-color: #fff;
+              color: #333;
+              cursor: pointer;
+              transition: background-color 0.3s ease, color 0.3s ease;
+            }
+            button:hover {
+              background-color: #333;
+              color: #fff;
+            }
+          </style>
+<script>
+function submitWholeRoll(paperType) {
+  if (!confirm(`This will print the entire roll on 10x15 ${paperType} paper. Each print normally costs €0.75. As you've selected 20 or more prints, the total is capped at €15. Continue?`)) return;
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = `/roll/{{ sticker }}/submit-order`;
+  document.querySelectorAll('input[name="selected_images"]').forEach((cb, i) => {
+    const url = cb.value;
+    form.innerHTML += `<input type="hidden" name="order[${i}][url]" value="${url}">`;
+    form.innerHTML += `<input type="hidden" name="order[${i}][size]" value="10x15">`;
+    form.innerHTML += `<input type="hidden" name="order[${i}][paper]" value="${paperType}">`;
+    form.innerHTML += `<input type="hidden" name="order[${i}][border]" value="No">`;
+  });
+  document.body.appendChild(form); form.submit();
+}
+function selectAllImages() {
+  document.querySelectorAll('input[name="selected_images"]').forEach(cb => cb.checked = true);
+  updateSubmitState();
+}
+function deselectAllImages() {
+  document.querySelectorAll('input[name="selected_images"]').forEach(cb => cb.checked = false);
+  updateSubmitState();
+}
+function updateSubmitState() {
+  const count = document.querySelectorAll('input[name="selected_images"]:checked').length;
+  document.getElementById('nextButton').disabled = count === 0;
+  const topBtn = document.getElementById('topOrderButton');
+  if (topBtn) topBtn.disabled = count === 0;
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('input[name="selected_images"]').forEach(input => {
+    input.addEventListener('change', updateSubmitState);
+  });
+  updateSubmitState();
+});
+</script>"""
+
+def log(message):
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    print(f"[{timestamp}] {message}", flush=True)
+
+def generate_signed_url(file_path, expires_in=604800):
+    return s3.generate_presigned_url(
+        'get_object',
+        Params={'Bucket': B2_BUCKET_NAME, 'Key': file_path},
+        ExpiresIn=expires_in
+    )
+
+
 import os
 import smtplib
 import requests
@@ -34,12 +218,7 @@ app.secret_key = os.getenv("SECRET_KEY") or "fallback-secret"
 
 # === S3-Compatible Signed URL ===
 def generate_signed_url(file_path, expires_in=604800):
-    s3 = boto3.client(
-        's3',
-        aws_access_key_id=S3_ACCESS_KEY_ID,
-        aws_secret_access_key=S3_SECRET_ACCESS_KEY,
-        endpoint_url=S3_ENDPOINT_URL,
-        config=Config(signature_version='s3v4')
+    s3 = # removed duplicate boto3 client
     )
     return s3.generate_presigned_url(
         'get_object',
@@ -139,7 +318,7 @@ def send_email(to_address, subject, body):
     msg.add_alternative(html_body, subtype='html')
 
     try:
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        with # removed duplicate SMTP client as server:
             server.starttls()
             server.login(SMTP_USER, SMTP_PASS)
             server.send_message(msg)
@@ -156,12 +335,7 @@ def save_processed(folder_name):
         f.write(folder_name + "\n")
 
 def list_roll_folders(prefix="rolls/"):
-    s3 = boto3.client(
-        's3',
-        aws_access_key_id=S3_ACCESS_KEY_ID,
-        aws_secret_access_key=S3_SECRET_ACCESS_KEY,
-        endpoint_url=S3_ENDPOINT_URL,
-        config=Config(signature_version='s3v4')
+    s3 = # removed duplicate boto3 client
     )
     result = s3.list_objects_v2(Bucket=B2_BUCKET_NAME, Prefix=prefix)
     folders = set()
@@ -273,7 +447,13 @@ def gallery(sticker):
         password_ok = False
 
     if not password_ok:
-        return render_template_string("""
+        resp = make_response(render_template_string(shared_assets + """
+<div class="lang-switcher">
+  <a href="?lang=en">EN</a> |
+  <a href="?lang=fr">FR</a> |
+  <a href="?lang=nl">NL</a>
+</div>
+
         <!DOCTYPE html>
         <html lang="en">
         <head>
@@ -341,7 +521,9 @@ def gallery(sticker):
           </div>
         </body>
         </html>
-        """, sticker=sticker)
+        """, sticker=sticker))
+    resp.set_cookie("lang", lang)
+    return resp
 
     def find_folder_by_suffix(suffix):
         folders = list_roll_folders()
@@ -355,19 +537,20 @@ def gallery(sticker):
         return f"No folder found for sticker {sticker}.", 404
 
     prefix = f"rolls/{folder}/"
-    s3 = boto3.client(
-        's3',
-        aws_access_key_id=S3_ACCESS_KEY_ID,
-        aws_secret_access_key=S3_SECRET_ACCESS_KEY,
-        endpoint_url=S3_ENDPOINT_URL,
-        config=Config(signature_version='s3v4')
+    s3 = # removed duplicate boto3 client
     )
     result = s3.list_objects_v2(Bucket=B2_BUCKET_NAME, Prefix=prefix)
     image_files = [obj["Key"] for obj in result.get("Contents", []) if obj["Key"].lower().endswith(('.jpg', '.jpeg', '.png'))]
     image_urls = [generate_signed_url(f) for f in image_files]
     zip_url = generate_signed_url(f"{prefix}{sticker}.zip")
 
-    return render_template_string("""
+    resp = make_response(render_template_string(shared_assets + """
+<div class="lang-switcher">
+  <a href="?lang=en">EN</a> |
+  <a href="?lang=fr">FR</a> |
+  <a href="?lang=nl">NL</a>
+</div>
+
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -403,7 +586,9 @@ def gallery(sticker):
           max-width: 280px;
           height: auto;
           border-radius: 8px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1))
+    resp.set_cookie("lang", lang)
+    return resp;
           margin: 0 5px 10px;
         }
         .download {
@@ -510,7 +695,13 @@ def order_page(sticker):
         password_ok = False
 
     if not password_ok:
-        return render_template_string("""
+        resp = make_response(render_template_string(shared_assets + """
+<div class="lang-switcher">
+  <a href="?lang=en">EN</a> |
+  <a href="?lang=fr">FR</a> |
+  <a href="?lang=nl">NL</a>
+</div>
+
         <!DOCTYPE html>
         <html lang="en">
         <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -526,7 +717,9 @@ def order_page(sticker):
             <button type="submit">Submit</button>
           </form>
         </body></html>
-        """, sticker=sticker)
+        """, sticker=sticker))
+    resp.set_cookie("lang", lang)
+    return resp
 
     def find_folder_by_suffix(suffix):
         folders = list_roll_folders()
@@ -540,12 +733,7 @@ def order_page(sticker):
         return f"No folder found for sticker {sticker}.", 404
 
     prefix = f"rolls/{folder}/"
-    s3 = boto3.client(
-        's3',
-        aws_access_key_id=S3_ACCESS_KEY_ID,
-        aws_secret_access_key=S3_SECRET_ACCESS_KEY,
-        endpoint_url=S3_ENDPOINT_URL,
-        config=Config(signature_version='s3v4')
+    s3 = # removed duplicate boto3 client
     )
     result = s3.list_objects_v2(Bucket=B2_BUCKET_NAME, Prefix=prefix)
     image_files = [obj["Key"] for obj in result.get("Contents", []) if obj["Key"].lower().endswith(('.jpg', '.jpeg', '.png'))]
@@ -557,14 +745,22 @@ def order_page(sticker):
     show_select_all_button = film_size != "35mm"
     allow_border_option = "Hires" in scan_type
 
-    return render_template_string("""
+    resp = make_response(render_template_string(shared_assets + """
+<div class="lang-switcher">
+  <a href="?lang=en">EN</a> |
+  <a href="?lang=fr">FR</a> |
+  <a href="?lang=nl">NL</a>
+</div>
+
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8">
 <title>Select Prints – Roll {{ sticker }}</title>
 <style>
 body { font-family: Helvetica; background-color: #fff; color: #333; margin: 0; padding: 0; }
 .container { max-width: 1280px; margin: auto; padding: 40px 20px; text-align: center; }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr))
+    resp.set_cookie("lang", lang)
+    return resp); gap: 12px; }
 .grid-item { border: 1px solid #eee; border-radius: 6px; padding: 8px; }
 .grid-item img { height: 150px; width: auto; display: block; margin: 0 auto 8px auto; object-fit: contain; }
 .button-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 20px; }
@@ -681,7 +877,13 @@ def submit_order(sticker):
     if not submitted_order:
         return "No images selected.", 400
 
-    return render_template_string("""
+    resp = make_response(render_template_string(shared_assets + """
+<div class="lang-switcher">
+  <a href="?lang=en">EN</a> |
+  <a href="?lang=fr">FR</a> |
+  <a href="?lang=nl">NL</a>
+</div>
+
     <!DOCTYPE html>
     <html>
     <head>
@@ -691,7 +893,9 @@ def submit_order(sticker):
         body { font-family: Helvetica, sans-serif; background: #fff; color: #333; margin: 0; padding: 0; }
         .container { max-width: 960px; margin: 0 auto; padding: 40px 20px; text-align: center; }
         .controls { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-bottom: 30px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 40px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr))
+    resp.set_cookie("lang", lang)
+    return resp); gap: 12px; margin-bottom: 40px; }
         .grid-item { border: 1px solid #ccc; border-radius: 6px; padding: 12px; text-align: center; }
         .grid-item img { max-height: 180px; width: auto; margin-bottom: 10px; }
         .selectors { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
@@ -895,7 +1099,13 @@ def review_order(sticker):
     tax = subtotal * tax_rate / (1 + tax_rate)
     total = subtotal
 
-    return render_template_string("""
+    resp = make_response(render_template_string(shared_assets + """
+<div class="lang-switcher">
+  <a href="?lang=en">EN</a> |
+  <a href="?lang=fr">FR</a> |
+  <a href="?lang=nl">NL</a>
+</div>
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -926,7 +1136,9 @@ def review_order(sticker):
     }
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr))
+    resp.set_cookie("lang", lang)
+    return resp);
       gap: 12px;
     }
     .grid-item {
@@ -1035,7 +1247,7 @@ def finalize_order(sticker):
     if not mollie_api_key:
         return "Mollie API key not set.", 500
 
-    mollie_client = MollieClient()
+    mollie_client = # removed duplicate MollieClient()
     mollie_client.set_api_key(mollie_api_key)
 
     submitted_order = []
@@ -1104,7 +1316,7 @@ def thank_you(sticker):
     raw_email = fields.get('Client Email', 'your email')
     email = str(raw_email).strip('"').strip("'") if raw_email else 'your email'
 
-    return render_template_string(f"""
+    resp = make_response(render_template_string(f"""
     <!DOCTYPE html>
     <html>
     <head>
@@ -1164,7 +1376,9 @@ def thank_you(sticker):
         </div>
     </body>
     </html>
-    """)
+    """))
+    resp.set_cookie("lang", lang)
+    return resp
 
 @app.route('/mollie-webhook', methods=['POST'])
 def mollie_webhook():
@@ -1174,7 +1388,7 @@ def mollie_webhook():
 
     from mollie.api.client import Client as MollieClient
     from urllib.parse import urlparse, unquote
-    mollie_client = MollieClient()
+    mollie_client = # removed duplicate MollieClient()
     mollie_client.set_api_key(mollie_api_key)
 
     payment_id = request.form.get("id")
@@ -1261,7 +1475,7 @@ def mollie_webhook():
         msg.set_content("Your order is confirmed.")
         msg.add_alternative(f"<html><body>{email_body}</body></html>", subtype="html")
 
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        with # removed duplicate SMTP client as server:
             server.starttls()
             server.login(SMTP_USER, SMTP_PASS)
             server.send_message(msg)
@@ -1286,7 +1500,7 @@ def mollie_webhook():
         internal_msg.set_content("New print order received.")
         internal_msg.add_alternative(f"<html><body>{internal_body}</body></html>", subtype="html")
 
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        with # removed duplicate SMTP client as server:
             server.starttls()
             server.login(SMTP_USER, SMTP_PASS)
             server.send_message(internal_msg)
