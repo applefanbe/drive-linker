@@ -1,4 +1,3 @@
-
 import os
 import smtplib
 import requests
@@ -10,11 +9,10 @@ import time
 import json
 from datetime import datetime
 from email.message import EmailMessage
-from flask import flash, Flask, make_response, request, render_template_string, session, redirect, url_for
+from flask import Flask, request, render_template_string, session, redirect, url_for
 import boto3
 from botocore.client import Config
 from urllib.parse import quote
-from mollie.api.client import Client as MollieClient
 
 # === Configuration ===
 AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
@@ -30,27 +28,26 @@ S3_ACCESS_KEY_ID = os.getenv("S3_ACCESS_KEY_ID")
 S3_SECRET_ACCESS_KEY = os.getenv("S3_SECRET_ACCESS_KEY")
 S3_ENDPOINT_URL = os.getenv("S3_ENDPOINT_URL")
 B2_BUCKET_NAME = os.getenv("B2_BUCKET_NAME")
-MOLLIE_API_KEY = os.getenv("MOLLIE_API_KEY")
 
-# === Initialize Clients ===
-s3 = boto3.client(
-    's3',
-    aws_access_key_id=S3_ACCESS_KEY_ID,
-    aws_secret_access_key=S3_SECRET_ACCESS_KEY,
-    endpoint_url=S3_ENDPOINT_URL,
-    config=Config(signature_version='s3v4')
-)
+app = Flask(__name__)
+app.secret_key = os.getenv("SECRET_KEY") or "fallback-secret"
 
-smtp = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
-smtp.starttls()
-smtp.login(SMTP_USER, SMTP_PASS)
+# === S3-Compatible Signed URL ===
+def generate_signed_url(file_path, expires_in=604800):
+    s3 = boto3.client(
+        's3',
+        aws_access_key_id=S3_ACCESS_KEY_ID,
+        aws_secret_access_key=S3_SECRET_ACCESS_KEY,
+        endpoint_url=S3_ENDPOINT_URL,
+        config=Config(signature_version='s3v4')
+    )
+    return s3.generate_presigned_url(
+        'get_object',
+        Params={'Bucket': B2_BUCKET_NAME, 'Key': file_path},
+        ExpiresIn=expires_in
+    )
 
-mollie_client = MollieClient()
-mollie_client.set_api_key(MOLLIE_API_KEY)
-
-# === Processed Cache ===
-try:
-    with open(STATE_FILE, "r") adef log(message):
+def log(message):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"[{timestamp}] {message}", flush=True)
 
@@ -276,11 +273,75 @@ def gallery(sticker):
         password_ok = False
 
     if not password_ok:
-        lang = request.args.get("lang") or request.cookies.get("lang", "en")
-    t = get_translation(lang)
-    resp = make_response(render_template("password.html", lang=lang, t=t))
-    resp.set_cookie("lang", lang)
-    return resp
+        return render_template_string("""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Enter Password – Roll {{ sticker }}</title>
+          <style>
+            body {
+              font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+              background-color: #ffffff;
+              color: #333333;
+              margin: 0;
+              padding: 0;
+              text-align: center;
+            }
+            .container {
+              max-width: 400px;
+              margin: 100px auto;
+              padding: 20px;
+              border: 1px solid #ddd;
+              border-radius: 8px;
+              text-align: center;
+            }
+            img {
+              max-width: 200px;
+              height: auto;
+              margin-bottom: 20px;
+            }
+            h2 {
+              font-size: 1.5em;
+              margin-bottom: 1em;
+            }
+            input[type="password"] {
+              width: 100%;
+              padding: 10px;
+              font-size: 1em;
+              margin-bottom: 1em;
+              border: 1px solid #ccc;
+              border-radius: 4px;
+            }
+            button {
+              padding: 10px 20px;
+              font-size: 1em;
+              border: 2px solid #333;
+              border-radius: 4px;
+              background-color: #fff;
+              color: #333;
+              cursor: pointer;
+              transition: background-color 0.3s ease, color 0.3s ease;
+            }
+            button:hover {
+              background-color: #333;
+              color: #fff;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo">
+            <h2>Enter password to access Roll {{ sticker }}</h2>
+            <form method="POST" style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
+              <input type="password" name="password" placeholder="Password" required style="width: 100%; max-width: 300px; padding: 10px; font-size: 1em; border: 1px solid #ccc; border-radius: 4px;">
+              <button type="submit">Submit</button>
+            </form>
+          </div>
+        </body>
+        </html>
+        """, sticker=sticker)
 
     def find_folder_by_suffix(suffix):
         folders = list_roll_folders()
@@ -306,15 +367,120 @@ def gallery(sticker):
     image_urls = [generate_signed_url(f) for f in image_files]
     zip_url = generate_signed_url(f"{prefix}{sticker}.zip")
 
-    lang = request.args.get("lang") or request.cookies.get("lang", "en")
-    t = get_translation(lang)
-    resp = make_response(render_template("gallery.html", lang=lang, t=t))
-    resp.set_cookie("lang", lang)
-    lang = request.args.get("lang") or request.cookies.get("lang", "en")
-    t = get_translation(lang)
-    resp = make_response(render_template(sticker=sticker, image_urls=image_urls, zip_url=zip_url, current_year=datetime.now().year, record=record  # ✅ this is required for roll-info to work, ))
-    resp.set_cookie("lang", lang)
-    return resp
+    return render_template_string("""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Roll {{ sticker }} – Gil Plaquet FilmLab</title>
+      <style>
+        body {
+          font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+          background-color: #ffffff;
+          color: #333333;
+          margin: 0;
+          padding: 0;
+          text-align: center;
+        }
+        .container {
+          max-width: 960px;
+          margin: 0 auto;
+          padding: 40px 20px;
+        }
+        h1 {
+          font-size: 2em;
+          margin-bottom: 0.5em;
+        }
+        .gallery {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 10px;
+          margin-top: 30px;
+        }
+        .gallery img {
+          max-width: 280px;
+          height: auto;
+          border-radius: 8px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+          margin: 0 5px 10px;
+        }
+        .download {
+          display: inline-block;
+          margin-bottom: 30px;
+          padding: 12px 24px;
+          border: 2px solid #333333;
+          border-radius: 4px;
+          text-decoration: none;
+          color: #333333;
+          font-weight: bold;
+          transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        .download:hover {
+          background-color: #333333;
+          color: #ffffff;
+        }
+        footer {
+          margin-top: 60px;
+          font-size: 0.9em;
+          color: #888888;
+        }
+        .roll-info {
+          font-size: 1.1em;
+          margin: 20px 0;
+          line-height: 1.6;
+        }
+        .roll-info span {
+          display: block;
+        }
+        @media (min-width: 600px) {
+          .roll-info span {
+            display: inline;
+          }
+          .roll-info span:not(:last-child)::after {
+            content: " – ";
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div>
+          <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; height: auto; margin-bottom: 20px;">
+        </div>
+        <a class="download" href="{{ zip_url }}">Download All (ZIP)</a>
+        <a class="download" href="/roll/{{ sticker }}/order">Order Prints</a>
+        <div class="roll-info">
+          <span><strong>Roll:</strong> {{ sticker }}</span>
+          {% if record['fields'].get('Size') %}
+            <span><strong>Size:</strong> {{ record['fields']['Size'] }}</span>
+          {% endif %}
+          {% if record['fields'].get('Stock') %}
+            <span><strong>Film Stock:</strong> {{ record['fields']['Stock'][0] }}</span>
+          {% endif %}
+          {% if record['fields'].get('Scan') %}
+            <span><strong>Scan:</strong> {{ record['fields']['Scan'] }}</span>
+          {% endif %}
+        </div>
+        <div class="gallery">
+          {% for url in image_urls %}
+            <img src="{{ url }}" alt="Scan {{ loop.index }}">
+          {% endfor %}
+        </div>
+        <footer>
+          &copy; {{ current_year }} Gil Plaquet
+        </footer>
+      </div>
+    </body>
+    </html>
+    """, 
+    sticker=sticker, 
+    image_urls=image_urls, 
+    zip_url=zip_url, 
+    current_year=datetime.now().year,
+    record=record  # ✅ this is required for roll-info to work
+    )
 
 @app.route('/roll/<sticker>/order', methods=['GET', 'POST'])
 def order_page(sticker):
@@ -344,11 +510,23 @@ def order_page(sticker):
         password_ok = False
 
     if not password_ok:
-        lang = request.args.get("lang") or request.cookies.get("lang", "en")
-    t = get_translation(lang)
-    resp = make_response(render_template("password_1.html", lang=lang, t=t))
-    resp.set_cookie("lang", lang)
-    return resp
+        return render_template_string("""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Enter Password – Roll {{ sticker }}</title>
+        <style>body { font-family: Helvetica; text-align: center; margin-top: 100px; }
+        input, button { padding: 10px; font-size: 1em; margin-top: 10px; }</style>
+        </head>
+        <body>
+          <h2>Enter password to access Roll {{ sticker }}</h2>
+          <form method="POST">
+            <input type="password" name="password" placeholder="Password" required>
+            <br>
+            <button type="submit">Submit</button>
+          </form>
+        </body></html>
+        """, sticker=sticker)
 
     def find_folder_by_suffix(suffix):
         folders = list_roll_folders()
@@ -379,15 +557,96 @@ def order_page(sticker):
     show_select_all_button = film_size != "35mm"
     allow_border_option = "Hires" in scan_type
 
-    lang = request.args.get("lang") or request.cookies.get("lang", "en")
-    t = get_translation(lang)
-    resp = make_response(render_template("gallery_1.html", lang=lang, t=t))
-    resp.set_cookie("lang", lang)
-    lang = request.args.get("lang") or request.cookies.get("lang", "en")
-    t = get_translation(lang)
-    resp = make_response(render_template(show_whole_roll_buttons=show_whole_roll_buttons, show_select_all_button=show_select_all_button, allow_border_option=allow_border_option))
-    resp.set_cookie("lang", lang)
-    return resp
+    return render_template_string("""
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<title>Select Prints – Roll {{ sticker }}</title>
+<style>
+body { font-family: Helvetica; background-color: #fff; color: #333; margin: 0; padding: 0; }
+.container { max-width: 1280px; margin: auto; padding: 40px 20px; text-align: center; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.grid-item { border: 1px solid #eee; border-radius: 6px; padding: 8px; }
+.grid-item img { height: 150px; width: auto; display: block; margin: 0 auto 8px auto; object-fit: contain; }
+.button-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 20px; }
+button { padding: 10px 18px; font-size: 0.95em; border: 2px solid #333; background: #fff; color: #333; cursor: pointer; border-radius: 4px; }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+button:hover:enabled { background: #333; color: #fff; }
+.note { font-size: 0.95em; margin-top: 10px; color: #666; }
+.download { display: inline-block; margin-bottom: 20px; padding: 10px 16px; border: 2px solid #333; border-radius: 4px; text-decoration: none; color: #333; }
+.download:hover { background-color: #333; color: #fff; }
+</style>
+<script>
+function submitWholeRoll(paperType) {
+  if (!confirm(`This will print the entire roll on 10x15 ${paperType} paper. Each print normally costs €0.75. As you've selected 20 or more prints, the total is capped at €15. Continue?`)) return;
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = `/roll/{{ sticker }}/submit-order`;
+  document.querySelectorAll('input[name="selected_images"]').forEach((cb, i) => {
+    const url = cb.value;
+    form.innerHTML += `<input type="hidden" name="order[${i}][url]" value="${url}">`;
+    form.innerHTML += `<input type="hidden" name="order[${i}][size]" value="10x15">`;
+    form.innerHTML += `<input type="hidden" name="order[${i}][paper]" value="${paperType}">`;
+    form.innerHTML += `<input type="hidden" name="order[${i}][border]" value="No">`;
+  });
+  document.body.appendChild(form); form.submit();
+}
+function selectAllImages() {
+  document.querySelectorAll('input[name="selected_images"]').forEach(cb => cb.checked = true);
+  updateSubmitState();
+}
+function deselectAllImages() {
+  document.querySelectorAll('input[name="selected_images"]').forEach(cb => cb.checked = false);
+  updateSubmitState();
+}
+function updateSubmitState() {
+  const count = document.querySelectorAll('input[name="selected_images"]:checked').length;
+  document.getElementById('nextButton').disabled = count === 0;
+  const topBtn = document.getElementById('topOrderButton');
+  if (topBtn) topBtn.disabled = count === 0;
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('input[name="selected_images"]').forEach(input => {
+    input.addEventListener('change', updateSubmitState);
+  });
+  updateSubmitState();
+});
+</script></head><body>
+<div class="container">
+  <div><img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; margin-bottom: 20px;"></div>
+  <a class="download" href="/roll/{{ sticker }}">&larr; Back to Gallery</a>
+  <form method="POST" action="/roll/{{ sticker }}/submit-order">
+    <div class="button-row">
+      {% if show_whole_roll_buttons %}
+      <button type="button" onclick="submitWholeRoll('Matte')">Print Whole Roll on 10x15 Matte (€15)</button>
+      <button type="button" onclick="submitWholeRoll('Glossy')">Print Whole Roll on 10x15 Glossy (€15)</button>
+      <button type="button" onclick="submitWholeRoll('Luster')">Print Whole Roll on 10x15 Luster (€15)</button>
+      {% elif show_select_all_button %}
+      <button type="button" onclick="selectAllImages()">Select All</button>
+      <button type="button" onclick="deselectAllImages()">Deselect All</button>
+      {% endif %}
+      <button type="submit" id="topOrderButton">Order Selected Prints</button>
+    </div>
+    <p class="note">Select your prints below</p>
+    <div class="grid">
+      {% for url in image_urls %}
+      <div class="grid-item">
+        <label style="cursor: pointer; display: block;">
+          <img src="{{ url }}" alt="Scan {{ loop.index }}">
+          <input type="checkbox" name="selected_images" value="{{ url }}" style="margin-top: 6px;">
+        </label>
+      </div>
+      {% endfor %}
+    </div>
+    <div style="margin: 40px 0;"></div>
+    <button id="nextButton" type="submit">Order Selected Prints</button>
+  </form>
+</div>
+</body>
+</html>
+    """, sticker=sticker, image_urls=image_urls,
+       show_whole_roll_buttons=show_whole_roll_buttons,
+       show_select_all_button=show_select_all_button,
+       allow_border_option=allow_border_option)
 
 @app.route('/roll/<sticker>/submit-order', methods=['POST'])
 def submit_order(sticker):
@@ -422,15 +681,174 @@ def submit_order(sticker):
     if not submitted_order:
         return "No images selected.", 400
 
-    lang = request.args.get("lang") or request.cookies.get("lang", "en")
-    t = get_translation(lang)
-    resp = make_response(render_template("order.html", lang=lang, t=t))
-    resp.set_cookie("lang", lang)
-    lang = request.args.get("lang") or request.cookies.get("lang", "en")
-    t = get_translation(lang)
-    resp = make_response(render_template(@app.route('/roll/<sticker>/review-order', methods=['POST']))
-    resp.set_cookie("lang", lang)
-    return resp
+    return render_template_string("""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset=\"UTF-8\">
+      <title>Confirm Order – Roll {{ sticker }}</title>
+      <style>
+        body { font-family: Helvetica, sans-serif; background: #fff; color: #333; margin: 0; padding: 0; }
+        .container { max-width: 960px; margin: 0 auto; padding: 40px 20px; text-align: center; }
+        .controls { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-bottom: 30px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 40px; }
+        .grid-item { border: 1px solid #ccc; border-radius: 6px; padding: 12px; text-align: center; }
+        .grid-item img { max-height: 180px; width: auto; margin-bottom: 10px; }
+        .selectors { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+        .price-tag { font-size: 0.95em; color: #555; margin-top: 4px; }
+        select { padding: 4px 6px; font-size: 0.95em; }
+        .actions { margin: 20px 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+        .total-price { font-size: 1.2em; margin-top: 10px; }
+        button, .button-link {
+          padding: 10px 20px;
+          font-size: 1em;
+          border: 2px solid #333;
+          border-radius: 4px;
+          background: #fff;
+          color: #333;
+          cursor: pointer;
+          text-decoration: none;
+        }
+        button:hover, .button-link:hover {
+          background: #333;
+          color: #fff;
+        }
+      </style>
+      <script>
+        function applyToAll() {
+          const size = document.getElementById('applySize').value;
+          const paper = document.getElementById('applyPaper').value;
+          const border = document.getElementById('applyBorder')?.value;
+          document.querySelectorAll('[data-row]').forEach(row => {
+            if (size !== '—') row.querySelector('.size').value = size;
+            if (paper !== '—') row.querySelector('.paper').value = paper;
+            if (border !== undefined && border !== '—') row.querySelector('.border').value = border;
+            updatePrice(row);
+          });
+          updateTotal();
+        }
+
+        function getPrice(size) {
+          if (size === '10x15') return 0.75;
+          if (size === 'A6') return 1.5;
+          if (size === 'A5') return 3.0;
+          if (size === 'A4') return 6.0;
+          if (size === 'A3') return 12.0;
+          return 0;
+        }
+
+        function updatePrice(row) {
+          const size = row.querySelector('.size').value;
+          const price = getPrice(size);
+          row.querySelector('.price-tag').textContent = `€${price.toFixed(2)}`;
+        }
+
+        function updateTotal() {
+          let total = 0;
+          let count_10x15 = 0;
+          document.querySelectorAll('[data-row]').forEach(row => {
+            const size = row.querySelector('.size').value;
+            const price = getPrice(size);
+            total += price;
+            if (size === '10x15') count_10x15 += 1;
+          });
+          if (count_10x15 >= 20) total = Math.min(total, 15);
+          document.getElementById('totalDisplay').textContent = `Your order total is €${total.toFixed(2)}`;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+          document.querySelectorAll('[data-row]').forEach(row => {
+            row.querySelectorAll('select').forEach(sel => {
+              sel.addEventListener('change', () => {
+                updatePrice(row);
+                updateTotal();
+              });
+            });
+            updatePrice(row);
+          });
+          updateTotal();
+        });
+      </script>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Confirm Your Print Order – Roll {{ sticker }}</h1>
+        <p class="total-price" id="totalDisplay">Your order total is €0.00</p>
+        <form method="POST" action="/roll/{{ sticker }}/review-order">
+          <div class="actions">
+            <a class="button-link" href="/roll/{{ sticker }}/order">← Back to Selection</a>
+            <button type="submit">Review & Pay</button>
+          </div>
+          <div class="controls">
+            <label>Size:
+              <select id="applySize">
+                <option>—</option>
+                <option>10x15</option>
+                <option>A6</option>
+                <option>A5</option>
+                <option>A4</option>
+                <option>A3</option>
+              </select>
+            </label>
+            <label>Paper:
+              <select id="applyPaper">
+                <option>—</option>
+                <option>Glossy</option>
+                <option>Matte</option>
+                <option>Luster</option>
+              </select>
+            </label>
+            {% if allow_border_option %}
+            <label>Scan Border:
+              <select id="applyBorder">
+                <option>—</option>
+                <option value="No">No Scan Border</option>
+                <option value="Yes">Print Scan Border</option>
+              </select>
+            </label>
+            {% endif %}
+            <button type="button" onclick="applyToAll()">Apply to All</button>
+          </div>
+          <div class="grid">
+            {% for item in submitted_order %}
+              <div class="grid-item" data-row>
+                <img src="{{ item.url }}">
+                <div class="selectors">
+                  <select name="order[{{ loop.index0 }}][size]" class="size">
+                    <option {% if item.size == '10x15' %}selected{% endif %}>10x15</option>
+                    <option {% if item.size == 'A6' %}selected{% endif %}>A6</option>
+                    <option {% if item.size == 'A5' %}selected{% endif %}>A5</option>
+                    <option {% if item.size == 'A4' %}selected{% endif %}>A4</option>
+                    <option {% if item.size == 'A3' %}selected{% endif %}>A3</option>
+                  </select>
+                  <select name="order[{{ loop.index0 }}][paper]" class="paper">
+                    <option {% if item.paper == 'Glossy' %}selected{% endif %}>Glossy</option>
+                    <option {% if item.paper == 'Matte' %}selected{% endif %}>Matte</option>
+                    <option {% if item.paper == 'Luster' %}selected{% endif %}>Luster</option>
+                  </select>
+                  {% if allow_border_option %}
+                  <select name="order[{{ loop.index0 }}][border]" class="border">
+                    <option value="No" {% if item.border == 'No' %}selected{% endif %}>No Scan Border</option>
+                    <option value="Yes" {% if item.border == 'Yes' %}selected{% endif %}>Print Scan Border</option>
+                  </select>
+                  {% else %}
+                  <input type="hidden" name="order[{{ loop.index0 }}][border]" value="No">
+                  {% endif %}
+                </div>
+                <div class="price-tag">€0.00</div>
+                <input type="hidden" name="order[{{ loop.index0 }}][url]" value="{{ item.url }}">
+              </div>
+            {% endfor %}
+          </div>
+          <div style="margin-bottom: 40px;"></div>
+          <button type="submit">Review & Pay</button>
+        </form>
+      </div>
+    </body>
+    </html>
+    """, sticker=sticker, submitted_order=submitted_order, allow_border_option=allow_border_option)
+
+@app.route('/roll/<sticker>/review-order', methods=['POST'])
 def review_order(sticker):
     record = find_airtable_record(sticker)
     if not record:
@@ -477,15 +895,135 @@ def review_order(sticker):
     tax = subtotal * tax_rate / (1 + tax_rate)
     total = subtotal
 
-    lang = request.args.get("lang") or request.cookies.get("lang", "en")
-    t = get_translation(lang)
-    resp = make_response(render_template("order_1.html", lang=lang, t=t))
-    resp.set_cookie("lang", lang)
-    lang = request.args.get("lang") or request.cookies.get("lang", "en")
-    t = get_translation(lang)
-    resp = make_response(render_template(@app.route('/roll/<sticker>/finalize-order', methods=['POST']))
-    resp.set_cookie("lang", lang)
-    return resp
+    return render_template_string("""
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Review Print Order – Roll {{ sticker }}</title>
+  <style>
+    body {
+      font-family: Helvetica, sans-serif;
+      background-color: #fff;
+      color: #333;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      text-align: center;
+    }
+    .summary {
+      margin: 20px 0 30px 0;
+    }
+    .summary h2 {
+      margin-bottom: 10px;
+    }
+    .summary p {
+      margin: 4px 0;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+    }
+    .grid-item {
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 10px;
+    }
+    .grid-item img {
+      height: 180px;
+      width: auto;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto 10px auto;
+    }
+    .button-row {
+      margin-top: 20px;
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    button {
+      margin-top: 20px;
+      padding: 12px 24px;
+      font-size: 1em;
+      border: 2px solid #333;
+      border-radius: 4px;
+      background: #fff;
+      color: #333;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    button:hover,
+    button:active {
+      background: #333;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div>
+      <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; margin-bottom: 20px;">
+    </div>
+    <h1>Review Your Print Order – Roll {{ sticker }}</h1>
+    <div class="summary">
+      <h2>Total: €{{ '%.2f'|format(total) }} (incl. VAT)</h2>
+      <form method="POST" action="/roll/{{ sticker }}/finalize-order">
+        {% for item in submitted_order %}
+          <input type="hidden" name="order[{{ loop.index0 }}][url]" value="{{ item.url }}">
+          <input type="hidden" name="order[{{ loop.index0 }}][size]" value="{{ item.size }}">
+          <input type="hidden" name="order[{{ loop.index0 }}][paper]" value="{{ item.paper }}">
+          {% if allow_border %}
+            <input type="hidden" name="order[{{ loop.index0 }}][border]" value="{{ item.border }}">
+          {% endif %}
+        {% endfor %}
+        <div class="button-row">
+          <button type="submit">Pay with Mollie</button>
+        </div>
+      </form>
+      <form method="POST" action="/roll/{{ sticker }}/submit-order">
+        {% for item in submitted_order %}
+          <input type="hidden" name="order[{{ loop.index0 }}][url]" value="{{ item.url }}">
+          <input type="hidden" name="order[{{ loop.index0 }}][size]" value="{{ item.size }}">
+          <input type="hidden" name="order[{{ loop.index0 }}][paper]" value="{{ item.paper }}">
+          {% if allow_border %}
+            <input type="hidden" name="order[{{ loop.index0 }}][border]" value="{{ item.border }}">
+          {% endif %}
+        {% endfor %}
+        <div class="button-row">
+          <button type="submit">← Back to Edit</button>
+        </div>
+      </form>
+      <h3 style="margin-top:30px;">Order Breakdown:</h3>
+      {% for type, count in type_counter.items() %}
+        <p>{{ count }} × {{ type }}</p>
+      {% endfor %}
+      <p>Subtotal (excl. VAT): €{{ '%.2f'|format(total - tax) }}</p>
+      <p>VAT (21%): €{{ '%.2f'|format(tax) }}</p>
+    </div>
+    <div class="grid">
+      {% for item in submitted_order %}
+        <div class="grid-item">
+          <img src="{{ item.url }}">
+          <p>{{ item.size }} – {{ item.paper }}<br>€{{ '%.2f'|format(item.price) }}</p>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</body>
+</html>
+""", sticker=sticker, submitted_order=submitted_order, total=total, tax=tax, type_counter=type_counter, allow_border=allow_border)
+
+@app.route('/roll/<sticker>/finalize-order', methods=['POST'])
 def finalize_order(sticker):
     from mollie.api.client import Client as MollieClient
 

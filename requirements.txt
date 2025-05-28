@@ -1,6 +1,4 @@
-flask
-requests
-boto3
-python-dotenv
+Flask==2.2.5
+boto3==1.34.79
+requests==2.31.0
 mollie-api-python
-gunicorn
