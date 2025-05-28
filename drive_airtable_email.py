@@ -949,14 +949,21 @@ def review_order(sticker):
       gap: 10px;
     }
     button {
+      margin-top: 20px;
       padding: 12px 24px;
       font-size: 1em;
       border: 2px solid #333;
       border-radius: 4px;
       background: #fff;
+      color: #333;
       cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+      transition: background 0.3s, color 0.3s;
     }
-    button:hover {
+
+    button:hover,
+    button:active {
       background: #333;
       color: #fff;
     }
