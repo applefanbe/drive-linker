@@ -174,32 +174,13 @@ def log(message):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"[{timestamp}] {message}", flush=True)
 
+
 def generate_signed_url(file_path, expires_in=604800):
     return s3.generate_presigned_url(
         'get_object',
         Params={'Bucket': B2_BUCKET_NAME, 'Key': file_path},
         ExpiresIn=expires_in
     )
-
-
-import os
-import smtplib
-import requests
-import base64
-import sys
-import random
-import string
-import time
-import json
-from datetime import datetime
-from email.message import EmailMessage
-from flask import Flask, request, render_template_string, session, redirect, url_for
-import boto3
-from botocore.client import Config
-from urllib.parse import quote
-
-# === Configuration ===
-AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
 AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID")
 AIRTABLE_TABLE_NAME = os.getenv("AIRTABLE_TABLE_NAME")
 SMTP_SERVER = os.getenv("SMTP_SERVER")
@@ -217,17 +198,13 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY") or "fallback-secret"
 
 # === S3-Compatible Signed URL ===
+
 def generate_signed_url(file_path, expires_in=604800):
-    s3 = # removed duplicate boto3 client
-    )
     return s3.generate_presigned_url(
         'get_object',
         Params={'Bucket': B2_BUCKET_NAME, 'Key': file_path},
         ExpiresIn=expires_in
     )
-
-def log(message):
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"[{timestamp}] {message}", flush=True)
 
 # === Airtable ===
@@ -447,13 +424,7 @@ def gallery(sticker):
         password_ok = False
 
     if not password_ok:
-        resp = make_response(render_template_string(shared_assets + """
-<div class="lang-switcher">
-  <a href="?lang=en">EN</a> |
-  <a href="?lang=fr">FR</a> |
-  <a href="?lang=nl">NL</a>
-</div>
-
+        return render_template_string(shared_assets + """
         <!DOCTYPE html>
         <html lang="en">
         <head>
@@ -521,9 +492,7 @@ def gallery(sticker):
           </div>
         </body>
         </html>
-        """, sticker=sticker))
-    resp.set_cookie("lang", lang)
-    return resp
+        """, sticker=sticker)
 
     def find_folder_by_suffix(suffix):
         folders = list_roll_folders()
@@ -544,13 +513,7 @@ def gallery(sticker):
     image_urls = [generate_signed_url(f) for f in image_files]
     zip_url = generate_signed_url(f"{prefix}{sticker}.zip")
 
-    resp = make_response(render_template_string(shared_assets + """
-<div class="lang-switcher">
-  <a href="?lang=en">EN</a> |
-  <a href="?lang=fr">FR</a> |
-  <a href="?lang=nl">NL</a>
-</div>
-
+    return render_template_string(shared_assets + """
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -586,9 +549,7 @@ def gallery(sticker):
           max-width: 280px;
           height: auto;
           border-radius: 8px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1))
-    resp.set_cookie("lang", lang)
-    return resp;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
           margin: 0 5px 10px;
         }
         .download {
@@ -695,13 +656,7 @@ def order_page(sticker):
         password_ok = False
 
     if not password_ok:
-        resp = make_response(render_template_string(shared_assets + """
-<div class="lang-switcher">
-  <a href="?lang=en">EN</a> |
-  <a href="?lang=fr">FR</a> |
-  <a href="?lang=nl">NL</a>
-</div>
-
+        return render_template_string(shared_assets + """
         <!DOCTYPE html>
         <html lang="en">
         <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -717,9 +672,7 @@ def order_page(sticker):
             <button type="submit">Submit</button>
           </form>
         </body></html>
-        """, sticker=sticker))
-    resp.set_cookie("lang", lang)
-    return resp
+        """, sticker=sticker)
 
     def find_folder_by_suffix(suffix):
         folders = list_roll_folders()
@@ -745,22 +698,14 @@ def order_page(sticker):
     show_select_all_button = film_size != "35mm"
     allow_border_option = "Hires" in scan_type
 
-    resp = make_response(render_template_string(shared_assets + """
-<div class="lang-switcher">
-  <a href="?lang=en">EN</a> |
-  <a href="?lang=fr">FR</a> |
-  <a href="?lang=nl">NL</a>
-</div>
-
+    return render_template_string(shared_assets + """
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8">
 <title>Select Prints – Roll {{ sticker }}</title>
 <style>
 body { font-family: Helvetica; background-color: #fff; color: #333; margin: 0; padding: 0; }
 .container { max-width: 1280px; margin: auto; padding: 40px 20px; text-align: center; }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr))
-    resp.set_cookie("lang", lang)
-    return resp); gap: 12px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
 .grid-item { border: 1px solid #eee; border-radius: 6px; padding: 8px; }
 .grid-item img { height: 150px; width: auto; display: block; margin: 0 auto 8px auto; object-fit: contain; }
 .button-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 20px; }
@@ -877,13 +822,7 @@ def submit_order(sticker):
     if not submitted_order:
         return "No images selected.", 400
 
-    resp = make_response(render_template_string(shared_assets + """
-<div class="lang-switcher">
-  <a href="?lang=en">EN</a> |
-  <a href="?lang=fr">FR</a> |
-  <a href="?lang=nl">NL</a>
-</div>
-
+    return render_template_string(shared_assets + """
     <!DOCTYPE html>
     <html>
     <head>
@@ -893,9 +832,7 @@ def submit_order(sticker):
         body { font-family: Helvetica, sans-serif; background: #fff; color: #333; margin: 0; padding: 0; }
         .container { max-width: 960px; margin: 0 auto; padding: 40px 20px; text-align: center; }
         .controls { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-bottom: 30px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr))
-    resp.set_cookie("lang", lang)
-    return resp); gap: 12px; margin-bottom: 40px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 40px; }
         .grid-item { border: 1px solid #ccc; border-radius: 6px; padding: 12px; text-align: center; }
         .grid-item img { max-height: 180px; width: auto; margin-bottom: 10px; }
         .selectors { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
@@ -1099,13 +1036,7 @@ def review_order(sticker):
     tax = subtotal * tax_rate / (1 + tax_rate)
     total = subtotal
 
-    resp = make_response(render_template_string(shared_assets + """
-<div class="lang-switcher">
-  <a href="?lang=en">EN</a> |
-  <a href="?lang=fr">FR</a> |
-  <a href="?lang=nl">NL</a>
-</div>
-
+    return render_template_string(shared_assets + """
 <!DOCTYPE html>
 <html>
 <head>
@@ -1136,9 +1067,7 @@ def review_order(sticker):
     }
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr))
-    resp.set_cookie("lang", lang)
-    return resp);
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 12px;
     }
     .grid-item {
@@ -1316,7 +1245,7 @@ def thank_you(sticker):
     raw_email = fields.get('Client Email', 'your email')
     email = str(raw_email).strip('"').strip("'") if raw_email else 'your email'
 
-    resp = make_response(render_template_string(f"""
+    return render_template_string(f"""
     <!DOCTYPE html>
     <html>
     <head>
@@ -1376,9 +1305,7 @@ def thank_you(sticker):
         </div>
     </body>
     </html>
-    """))
-    resp.set_cookie("lang", lang)
-    return resp
+    """)
 
 @app.route('/mollie-webhook', methods=['POST'])
 def mollie_webhook():
