@@ -190,19 +190,20 @@ def main():
         password = generate_password()
         update_airtable_record(record['id'], {"Password": password})
 
-        order_link = f"https://scans.gilplaquet.com/roll/{twin_sticker}"
+        gallery_link = f"https://scans.gilplaquet.com/roll/{twin_sticker}"
+        order_link = f"https://scans.gilplaquet.com/roll/{twin_sticker}/order"
         subject = f"Your Scans Are Ready - Roll {twin_sticker}"
         body = f"""
 Hi there,
 
 Good news! A roll you sent in for development just got scanned.
-You can view and download your scans at the link below:
+You can view and download your scans as a .zip at the link below:
 
-{order_link}
+{gallery_link}
 
 To access your gallery, use the password: {password}
 
-Prints can be ordered through this link:
+Prints can be ordered from the gallery or through this link:
 
 {order_link}
 
