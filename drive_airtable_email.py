@@ -453,10 +453,15 @@ def gallery(sticker):
         <a class="download" href="/roll/{{ sticker }}/order">Order Prints</a>
         <div class="roll-info">
           <span><strong>Roll:</strong> {{ sticker }}</span>
-          {% if record['fields'].get('Client Name') %}<span><strong>Client:</strong> {{ record['fields']['Client Name'][0] }}</span>{% endif %}
-          {% if record['fields'].get('Size') %}<span><strong>Size:</strong> {{ record['fields']['Size'] }}</span>{% endif %}
-          {% if record['fields'].get('Film Stock') %}<span><strong>Film Stock:</strong> {{ record['fields']['Film Stock'][0] }}</span>{% endif %}
-          {% if record['fields'].get('Scan') %}<span><strong>Scan:</strong> {{ record['fields']['Scan'] }}</span>{% endif %}
+          {% if record['fields'].get('Size') %}
+            <span><strong>Size:</strong> {{ record['fields']['Size'] }}</span>
+          {% endif %}
+          {% if record['fields'].get('Stock') %}
+            <span><strong>Film Stock:</strong> {{ record['fields']['Stock'][0] }}</span>
+          {% endif %}
+          {% if record['fields'].get('Scan') %}
+            <span><strong>Scan:</strong> {{ record['fields']['Scan'] }}</span>
+          {% endif %}
         </div>
         <div class="gallery">
           {% for url in image_urls %}
