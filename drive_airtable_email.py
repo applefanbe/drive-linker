@@ -1097,8 +1097,12 @@ def finalize_order(sticker):
 @app.route('/roll/<sticker>/thank-you')
 def thank_you(sticker):
     record = find_airtable_record(sticker)
-    raw_email = record['fields'].get('Client Email', 'your email')
-    email = raw_email.strip('"').strip("'")  # strip quotes if Make added them
+    if not record or 'fields' not in record:
+        return "Roll not found or incomplete.", 404
+
+    fields = record['fields']
+    raw_email = fields.get('Client Email', 'your email')
+    email = str(raw_email).strip('"').strip("'") if raw_email else 'your email'
 
     return render_template_string(f"""
     <!DOCTYPE html>
@@ -1109,7 +1113,7 @@ def thank_you(sticker):
         <style>
             body {{
                 font-family: Helvetica, sans-serif;
-                background-color: #ffffff; /* match logo */
+                background-color: #ffffff;
                 margin: 0;
                 padding: 0;
                 color: #333;
