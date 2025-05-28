@@ -47,6 +47,7 @@ s3 = boto3.client(
     aws_secret_access_key=S3_SECRET_ACCESS_KEY,
     endpoint_url=S3_ENDPOINT_URL,
     config=Config(signature_version='s3v4')
+)
 
 smtp = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
 smtp.starttls()
