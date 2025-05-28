@@ -198,7 +198,7 @@ Hi there,
 Good news! A roll you sent in for development just got scanned.
 You can view and download your scans at the link below:
 
-{gallery_link}
+{order_link}
 
 To access your gallery, use the password: {password}
 
