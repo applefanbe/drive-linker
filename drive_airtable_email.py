@@ -116,17 +116,27 @@ def send_email(to_address, subject, body):
     msg["To"] = to_address
     msg["Bcc"] = bcc_address
     msg["Subject"] = subject
-    msg.set_content(body)
+    msg.set_content(body)  # fallback for plain-text clients
 
+    # HTML version with inline styles for email compatibility
     body_html = body.replace('\n', '<br>')
     html_body = f"""
-    <div style='text-align: center;'>
-      <img src='https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png' alt='Logo' style='width: 250px; margin-bottom: 20px;'>
-    </div>
-    <div style='font-family: sans-serif;'>{body_html}</div>
+    <html>
+    <body style="margin:0;padding:0;font-family:Helvetica,Arial,sans-serif;background:#fff;">
+      <div style="width:100%;text-align:center;padding:40px 20px;">
+        <div style="display:inline-block;text-align:left;max-width:600px;width:100%;">
+          <div style="text-align:center;">
+            <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="width:250px;margin-bottom:20px;">
+          </div>
+          <div style="font-size:16px;color:#333;line-height:1.5;">
+            {body_html}
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
     """
-
-    msg.add_alternative(f"<html><body>{html_body}</body></html>", subtype='html')
+    msg.add_alternative(html_body, subtype='html')
 
     try:
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
