@@ -47,7 +47,6 @@ s3 = boto3.client(
     aws_secret_access_key=S3_SECRET_ACCESS_KEY,
     endpoint_url=S3_ENDPOINT_URL,
     config=Config(signature_version='s3v4')
-)
 
 smtp = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
 smtp.starttls()
@@ -180,7 +179,6 @@ def generate_signed_url(file_path, expires_in=604800):
         'get_object',
         Params={'Bucket': B2_BUCKET_NAME, 'Key': file_path},
         ExpiresIn=expires_in
-    )
 AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID")
 AIRTABLE_TABLE_NAME = os.getenv("AIRTABLE_TABLE_NAME")
 SMTP_SERVER = os.getenv("SMTP_SERVER")
@@ -204,7 +202,6 @@ def generate_signed_url(file_path, expires_in=604800):
         'get_object',
         Params={'Bucket': B2_BUCKET_NAME, 'Key': file_path},
         ExpiresIn=expires_in
-    )
     print(f"[{timestamp}] {message}", flush=True)
 
 # === Airtable ===
@@ -312,8 +309,6 @@ def save_processed(folder_name):
         f.write(folder_name + "\n")
 
 def list_roll_folders(prefix="rolls/"):
-    s3 = # removed duplicate boto3 client
-    )
     result = s3.list_objects_v2(Bucket=B2_BUCKET_NAME, Prefix=prefix)
     folders = set()
     for obj in result.get("Contents", []):
@@ -506,8 +501,6 @@ def gallery(sticker):
         return f"No folder found for sticker {sticker}.", 404
 
     prefix = f"rolls/{folder}/"
-    s3 = # removed duplicate boto3 client
-    )
     result = s3.list_objects_v2(Bucket=B2_BUCKET_NAME, Prefix=prefix)
     image_files = [obj["Key"] for obj in result.get("Contents", []) if obj["Key"].lower().endswith(('.jpg', '.jpeg', '.png'))]
     image_urls = [generate_signed_url(f) for f in image_files]
@@ -626,7 +619,6 @@ def gallery(sticker):
     zip_url=zip_url, 
     current_year=datetime.now().year,
     record=record  # ✅ this is required for roll-info to work
-    )
 
 @app.route('/roll/<sticker>/order', methods=['GET', 'POST'])
 def order_page(sticker):
@@ -686,8 +678,6 @@ def order_page(sticker):
         return f"No folder found for sticker {sticker}.", 404
 
     prefix = f"rolls/{folder}/"
-    s3 = # removed duplicate boto3 client
-    )
     result = s3.list_objects_v2(Bucket=B2_BUCKET_NAME, Prefix=prefix)
     image_files = [obj["Key"] for obj in result.get("Contents", []) if obj["Key"].lower().endswith(('.jpg', '.jpeg', '.png'))]
     image_urls = [generate_signed_url(f) for f in image_files]
@@ -1176,7 +1166,6 @@ def finalize_order(sticker):
     if not mollie_api_key:
         return "Mollie API key not set.", 500
 
-    mollie_client = # removed duplicate MollieClient()
     mollie_client.set_api_key(mollie_api_key)
 
     submitted_order = []
@@ -1315,7 +1304,6 @@ def mollie_webhook():
 
     from mollie.api.client import Client as MollieClient
     from urllib.parse import urlparse, unquote
-    mollie_client = # removed duplicate MollieClient()
     mollie_client.set_api_key(mollie_api_key)
 
     payment_id = request.form.get("id")
@@ -1421,7 +1409,6 @@ def mollie_webhook():
                 f"<li><strong>{filename}</strong><br>"
                 f"{item['size']} – {item['paper']}, Border: {item['border']}<br>"
                 f"<img src='{item['url']}' width='100'></li>"
-            )
         internal_body += "</ul>"
 
         internal_msg.set_content("New print order received.")
