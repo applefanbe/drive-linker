@@ -426,6 +426,22 @@ def gallery(sticker):
           font-size: 0.9em;
           color: #888888;
         }
+         .roll-info {
+          font-size: 1.1em;
+          margin: 20px 0;
+          line-height: 1.6;
+        }
+        .roll-info span {
+          display: block;
+        }
+        @media (min-width: 600px) {
+          .roll-info span {
+            display: inline;
+          }
+          .roll-info span:not(:last-child)::after {
+            content: " – ";
+          }
+        }
       </style>
     </head>
     <body>
@@ -435,7 +451,13 @@ def gallery(sticker):
         </div>
         <a class="download" href="{{ zip_url }}">Download All (ZIP)</a>
         <a class="download" href="/roll/{{ sticker }}/order">Order Prints</a>
-        <h1>Roll {{ sticker }}</h1>
+        <div class="roll-info">
+          <span>Roll {{ sticker }}</span>
+          {% if record['fields'].get('Client Name') %}<span>Client: {{ record['fields']['Client Name'] }}</span>{% endif %}
+          {% if record['fields'].get('Size') %}<span>Size: {{ record['fields']['Size'] }}</span>{% endif %}
+          {% if record['fields'].get('Film Stock') %}<span>Film Stock: {{ record['fields']['Film Stock'] }}</span>{% endif %}
+          {% if record['fields'].get('Scan') %}<span>Scan: {{ record['fields']['Scan'] }}</span>{% endif %}
+        </div>
         <div class="gallery">
           {% for url in image_urls %}
             <img src="{{ url }}" alt="Scan {{ loop.index }}">
@@ -1172,7 +1194,9 @@ def finalize_order(sticker):
 @app.route('/roll/<sticker>/thank-you')
 def thank_you(sticker):
     record = find_airtable_record(sticker)
-    email = record['fields'].get('Client Email', 'your email')
+    raw_email = record['fields'].get('Client Email', 'your email')
+    email = raw_email.strip('"').strip("'")  # strip quotes if Make added them
+
     return render_template_string(f"""
     <!DOCTYPE html>
     <html>
@@ -1182,30 +1206,55 @@ def thank_you(sticker):
         <style>
             body {{
                 font-family: Helvetica, sans-serif;
-                background-color: #f9f9f9;
+                background-color: #ffffff; /* match logo */
+                margin: 0;
+                padding: 0;
                 color: #333;
                 text-align: center;
-                padding: 100px 20px;
+            }}
+            .wrapper {{
+                padding: 60px 20px;
+                max-width: 600px;
+                margin: auto;
             }}
             h1 {{
                 font-size: 2em;
                 margin-bottom: 20px;
             }}
             p {{
-                font-size: 1.2em;
+                font-size: 1.1em;
+                margin-bottom: 20px;
+                line-height: 1.5;
             }}
             img {{
                 max-width: 200px;
                 margin-bottom: 30px;
             }}
+            a.button {{
+                display: inline-block;
+                padding: 10px 20px;
+                font-size: 1em;
+                border: 2px solid #333;
+                border-radius: 4px;
+                background: #fff;
+                color: #333;
+                text-decoration: none;
+                margin-top: 30px;
+            }}
+            a.button:hover {{
+                background: #333;
+                color: #fff;
+            }}
         </style>
     </head>
     <body>
-        <img src='https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png' alt='Logo'>
-        <h1>Thank you for your order!</h1>
-        <p>Your payment was successful and your print order for roll <strong>{sticker}</strong> has been received.</p>
-        <p>You’ll receive a confirmation email shortly at <strong>{email}</strong>.</p>
-    <p><a href='/roll/{sticker}' style='display:inline-block; margin-top:30px; padding:10px 20px; font-size:1em; border:2px solid #333; border-radius:4px; background:#fff; color:#333; text-decoration:none;'>Back to Gallery</a></p>
+        <div class="wrapper">
+            <img src='https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png' alt='Logo'>
+            <h1>Thank you for your order!</h1>
+            <p>Your payment was successful and your print order for roll <strong>{sticker}</strong> has been received.</p>
+            <p>You’ll receive a confirmation email shortly at <strong>{email}</strong>.</p>
+            <a class="button" href='/roll/{sticker}'>← Back to Gallery</a>
+        </div>
     </body>
     </html>
     """)
