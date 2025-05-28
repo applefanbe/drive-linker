@@ -426,7 +426,7 @@ def gallery(sticker):
           font-size: 0.9em;
           color: #888888;
         }
-         .roll-info {
+        .roll-info {
           font-size: 1.1em;
           margin: 20px 0;
           line-height: 1.6;
@@ -469,7 +469,13 @@ def gallery(sticker):
       </div>
     </body>
     </html>
-    """, sticker=sticker, image_urls=image_urls, zip_url=zip_url, current_year=datetime.now().year)
+    """, 
+    sticker=sticker, 
+    image_urls=image_urls, 
+    zip_url=zip_url, 
+    current_year=datetime.now().year,
+    record=record  # ✅ this is required for roll-info to work
+    )
 
 @app.route('/roll/<sticker>/order', methods=['GET', 'POST'])
 def order_page(sticker):
