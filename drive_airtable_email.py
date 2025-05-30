@@ -392,19 +392,29 @@ def gallery(sticker):
           font-size: 2em;
           margin-bottom: 0.5em;
         }
-        .gallery {
+       .gallery {
           display: flex;
           flex-wrap: wrap;
           justify-content: center;
           gap: 10px;
           margin-top: 30px;
         }
-        .gallery img {
-          max-width: 280px;
-          height: auto;
+        .gallery-item {
+          width: 260px;
+          height: 260px;
+          background-color: #f8f8f8;
           border-radius: 8px;
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-          margin: 0 5px 10px;
+        }
+        .gallery-item img {
+          max-width: 100%;
+          max-height: 100%;
+          object-fit: contain;
+          display: block;
         }
         .download {
           display: inline-block;
@@ -465,9 +475,11 @@ def gallery(sticker):
         </div>
         <div class="gallery">
           {% for url in image_urls %}
-            <img src="{{ url }}" alt="Scan {{ loop.index }}">
+            <div class="gallery-item">
+              <img src="{{ url }}" alt="Scan {{ loop.index }}">
+            </div>
           {% endfor %}
-        </div>
+        </div>    
         <footer>
           &copy; {{ current_year }} Gil Plaquet
         </footer>
