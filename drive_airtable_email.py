@@ -945,11 +945,10 @@ def review_order(sticker):
       margin-top: 20px;
       display: flex;
       justify-content: center;
-      flex-wrap: wrap;
       gap: 10px;
+      flex-wrap: wrap;
     }
-    button {
-      margin-top: 20px;
+    .button-row button {
       padding: 12px 24px;
       font-size: 1em;
       border: 2px solid #333;
@@ -957,13 +956,10 @@ def review_order(sticker):
       background: #fff;
       color: #333;
       cursor: pointer;
-      -webkit-appearance: none;
-      appearance: none;
       transition: background 0.3s, color 0.3s;
     }
-
-    button:hover,
-    button:active {
+    .button-row button:hover,
+    .button-row button:active {
       background: #333;
       color: #fff;
     }
@@ -977,7 +973,7 @@ def review_order(sticker):
     <h1>Review Your Print Order – Roll {{ sticker }}</h1>
     <div class="summary">
       <h2>Total: €{{ '%.2f'|format(total) }} (incl. VAT)</h2>
-      <form method="POST" action="/roll/{{ sticker }}/finalize-order">
+      <form method="POST">
         {% for item in submitted_order %}
           <input type="hidden" name="order[{{ loop.index0 }}][url]" value="{{ item.url }}">
           <input type="hidden" name="order[{{ loop.index0 }}][size]" value="{{ item.size }}">
@@ -987,22 +983,11 @@ def review_order(sticker):
           {% endif %}
         {% endfor %}
         <div class="button-row">
-          <button type="submit">Pay with Mollie</button>
+          <button type="submit" formaction="/roll/{{ sticker }}/submit-order">← Back to Edit</button>
+          <button type="submit" formaction="/roll/{{ sticker }}/finalize-order">Pay with Mollie</button>
         </div>
       </form>
-      <form method="POST" action="/roll/{{ sticker }}/submit-order">
-        {% for item in submitted_order %}
-          <input type="hidden" name="order[{{ loop.index0 }}][url]" value="{{ item.url }}">
-          <input type="hidden" name="order[{{ loop.index0 }}][size]" value="{{ item.size }}">
-          <input type="hidden" name="order[{{ loop.index0 }}][paper]" value="{{ item.paper }}">
-          {% if allow_border %}
-            <input type="hidden" name="order[{{ loop.index0 }}][border]" value="{{ item.border }}">
-          {% endif %}
-        {% endfor %}
-        <div class="button-row">
-          <button type="submit">← Back to Edit</button>
-        </div>
-      </form>
+
       <h3 style="margin-top:30px;">Order Breakdown:</h3>
       {% for type, count in type_counter.items() %}
         <p>{{ count }} × {{ type }}</p>
