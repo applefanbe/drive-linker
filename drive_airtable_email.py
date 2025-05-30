@@ -784,6 +784,7 @@ def submit_order(sticker):
     </head>
     <body>
       <div class="container">
+        <img src="https://cdn.sumup.store
         <h1>Confirm Your Print Order – Roll {{ sticker }}</h1>
         <p class="total-price" id="totalDisplay">Your order total is €0.00</p>
         <form method="POST" action="/roll/{{ sticker }}/review-order">
