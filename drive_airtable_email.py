@@ -859,7 +859,7 @@ def submit_order(sticker):
     </body>
     </html>
     """, sticker=sticker, submitted_order=submitted_order, allow_border_option=allow_border_option)
-
+    
 @app.route('/roll/<sticker>/review-order', methods=['POST'])
 def review_order(sticker):
     record = find_airtable_record(sticker)
