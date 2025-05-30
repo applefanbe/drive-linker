@@ -975,13 +975,16 @@ def review_order(sticker):
       background: #333;
       color: #fff;
     }
+    .logo {
+      max-width: 200px;
+      margin: 20px auto 30px;
+      display: block;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <div>
-      <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; margin-bottom: 20px;">
-    </div>
+    <img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" class="logo">
     <h1>Review Your Print Order – Roll {{ sticker }}</h1>
     <div class="summary">
       <h2>Total: €{{ '%.2f'|format(total) }} (incl. VAT)</h2>
