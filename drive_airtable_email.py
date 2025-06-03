@@ -711,8 +711,11 @@ def submit_order(sticker):
     <!DOCTYPE html>
     <html>
     <head>
-      <meta charset=\"UTF-8\">
+      <meta charset="UTF-8">
       <title>Confirm Order – Roll {{ sticker }}</title>
+      <script>
+        const rollSize = "{{ record['fields'].get('Size', '') }}";
+      </script>
       <style>
         body { font-family: Helvetica, sans-serif; background: #fff; color: #333; margin: 0; padding: 0; }
         .container { max-width: 960px; margin: 0 auto; padding: 40px 20px; text-align: center; }
@@ -772,13 +775,20 @@ def submit_order(sticker):
         function updateTotal() {
           let total = 0;
           let count_10x15 = 0;
+          const totalItems = document.querySelectorAll('[data-row]').length;
           document.querySelectorAll('[data-row]').forEach(row => {
             const size = row.querySelector('.size').value;
             const price = getPrice(size);
             total += price;
             if (size === '10x15') count_10x15 += 1;
           });
-          if (count_10x15 >= 20) total = Math.min(total, 15);
+          if (count_10x15 === totalItems) {
+            if (rollSize === 'Half Frame') {
+              total = Math.min(total, 25);
+            } else if (rollSize === '35mm' && count_10x15 >= 20) {
+              total = Math.min(total, 15);
+            }
+          }
           document.getElementById('totalDisplay').textContent = `Your order total is €${total.toFixed(2)}`;
         }
 
@@ -798,7 +808,7 @@ def submit_order(sticker):
     </head>
     <body>
       <div class="container">
-  <div><img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; margin-bottom: 20px;"></div>
+        <div><img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; margin-bottom: 20px;"></div>
         <h1>Confirm Your Print Order – Roll {{ sticker }}</h1>
         <p class="total-price" id="totalDisplay">Your order total is €0.00</p>
         <form method="POST" action="/roll/{{ sticker }}/review-order">
@@ -873,8 +883,8 @@ def submit_order(sticker):
       </div>
     </body>
     </html>
-    """, sticker=sticker, submitted_order=submitted_order, allow_border_option=allow_border_option)
-    
+    """, sticker=sticker, submitted_order=submitted_order, allow_border_option=allow_border_option, record=record)
+
 @app.route('/roll/<sticker>/review-order', methods=['POST'])
 def review_order(sticker):
     record = find_airtable_record(sticker)
@@ -889,6 +899,7 @@ def review_order(sticker):
     subtotal = 0.0
     tax_rate = 0.21
     count_10x15 = 0
+
     for key in request.form:
         if key.startswith('order[') and key.endswith('][url]'):
             index = key.split('[')[1].split(']')[0]
@@ -916,8 +927,13 @@ def review_order(sticker):
             submitted_order.append({'url': url, 'size': size, 'paper': paper, 'border': border, 'price': price})
             subtotal += price
 
-    if count_10x15 >= 20:
-        subtotal = min(subtotal, 15.0)
+    # Apply cap logic
+    roll_size = record['fields'].get('Size', '')
+    if count_10x15 == len(submitted_order):  # Only 10x15 prints
+        if roll_size == 'Half Frame':
+            subtotal = min(subtotal, 25.0)
+        elif roll_size == '35mm' and count_10x15 >= 20:
+            subtotal = min(subtotal, 15.0)
 
     tax = subtotal * tax_rate / (1 + tax_rate)
     total = subtotal
@@ -999,7 +1015,7 @@ def review_order(sticker):
 </head>
 <body>
   <div class="container">
-  <div><img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; margin-bottom: 20px;"></div>
+    <div><img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; margin-bottom: 20px;"></div>
     <h1>Review Your Print Order – Roll {{ sticker }}</h1>
     <div class="summary">
       <h2>Total: €{{ '%.2f'|format(total) }} (incl. VAT)</h2>
@@ -1056,6 +1072,7 @@ def finalize_order(sticker):
     submitted_order = []
     total = 0.0
     count_10x15 = 0
+
     for key in request.form:
         if key.startswith('order[') and key.endswith('][url]'):
             index = key.split('[')[1].split(']')[0]
@@ -1083,7 +1100,17 @@ def finalize_order(sticker):
             elif size == 'A3':
                 total += 12.0
 
-    capped_total = min(total, 15.0) if count_10x15 >= 20 else total
+    roll_size = record['fields'].get('Size', '')
+
+    if count_10x15 == len(submitted_order):  # All prints are 10x15
+        if roll_size == 'Half Frame':
+            capped_total = min(total, 25.0)
+        elif roll_size == '35mm' and count_10x15 >= 20:
+            capped_total = min(total, 15.0)
+        else:
+            capped_total = total
+    else:
+        capped_total = total
 
     description = f"Print order for roll {sticker}"
     redirect_url = f"https://scans.gilplaquet.com/roll/{sticker}/thank-you"
