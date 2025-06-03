@@ -565,6 +565,7 @@ def order_page(sticker):
 
     film_size = record['fields'].get("Size", "")
     scan_type = record['fields'].get("Scan", "")
+    is_half_frame = film_size == "35mm" and len(image_urls) > 42
     show_whole_roll_buttons = film_size == "35mm" and len(image_urls) >= 20
     show_select_all_button = film_size != "35mm"
     allow_border_option = "Hires" in scan_type
@@ -589,7 +590,11 @@ button:hover:enabled { background: #333; color: #fff; }
 </style>
 <script>
 function submitWholeRoll(paperType) {
-  if (!confirm(`This will print the entire roll on 10x15 ${paperType} paper. Each print normally costs €0.75. As you've selected 20 or more prints, the total is capped at €15. Continue?`)) return;
+  const isHalfFrame = {{ 'true' if is_half_frame else 'false' }};
+  const priceCap = isHalfFrame ? 25 : 15;
+  const label = isHalfFrame ? "half-frame roll" : "roll";
+  if (!confirm(`This will print the entire ${label} on 10x15 ${paperType} paper. Each print normally costs €0.75. As you've selected 20 or more prints, the total is capped at €${priceCap}. Continue?`)) return;
+
   const form = document.createElement('form');
   form.method = 'POST';
   form.action = `/roll/{{ sticker }}/submit-order`;
@@ -602,6 +607,7 @@ function submitWholeRoll(paperType) {
   });
   document.body.appendChild(form); form.submit();
 }
+
 function selectAllImages() {
   document.querySelectorAll('input[name="selected_images"]').forEach(cb => cb.checked = true);
   updateSubmitState();
@@ -629,12 +635,18 @@ document.addEventListener('DOMContentLoaded', () => {
   <form method="POST" action="/roll/{{ sticker }}/submit-order">
     <div class="button-row">
       {% if show_whole_roll_buttons %}
-      <button type="button" onclick="submitWholeRoll('Matte')">Print Whole Roll on 10x15 Matte (€15)</button>
-      <button type="button" onclick="submitWholeRoll('Glossy')">Print Whole Roll on 10x15 Glossy (€15)</button>
-      <button type="button" onclick="submitWholeRoll('Luster')">Print Whole Roll on 10x15 Luster (€15)</button>
+        {% if is_half_frame %}
+        <button type="button" onclick="submitWholeRoll('Matte')">Print Whole Half-Frame Roll on 10x15 Matte (€25)</button>
+        <button type="button" onclick="submitWholeRoll('Glossy')">Print Whole Half-Frame Roll on 10x15 Glossy (€25)</button>
+        <button type="button" onclick="submitWholeRoll('Luster')">Print Whole Half-Frame Roll on 10x15 Luster (€25)</button>
+        {% else %}
+        <button type="button" onclick="submitWholeRoll('Matte')">Print Whole Roll on 10x15 Matte (€15)</button>
+        <button type="button" onclick="submitWholeRoll('Glossy')">Print Whole Roll on 10x15 Glossy (€15)</button>
+        <button type="button" onclick="submitWholeRoll('Luster')">Print Whole Roll on 10x15 Luster (€15)</button>
+        {% endif %}
       {% elif show_select_all_button %}
-      <button type="button" onclick="selectAllImages()">Select All</button>
-      <button type="button" onclick="deselectAllImages()">Deselect All</button>
+        <button type="button" onclick="selectAllImages()">Select All</button>
+        <button type="button" onclick="deselectAllImages()">Deselect All</button>
       {% endif %}
       <button type="submit" id="topOrderButton">Order Selected Prints</button>
     </div>
@@ -658,7 +670,8 @@ document.addEventListener('DOMContentLoaded', () => {
     """, sticker=sticker, image_urls=image_urls,
        show_whole_roll_buttons=show_whole_roll_buttons,
        show_select_all_button=show_select_all_button,
-       allow_border_option=allow_border_option)
+       allow_border_option=allow_border_option,
+       is_half_frame=is_half_frame)
 
 @app.route('/roll/<sticker>/submit-order', methods=['POST'])
 def submit_order(sticker):
