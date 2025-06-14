@@ -367,6 +367,8 @@ def gallery(sticker):
     image_urls = [generate_signed_url(f) for f in image_files]
     zip_url = generate_signed_url(f"{prefix}{sticker}.zip")
 
+    comment = record['fields'].get('Comment', '').strip()
+
     return render_template_string("""
     <!DOCTYPE html>
     <html lang="en">
@@ -392,7 +394,7 @@ def gallery(sticker):
           font-size: 2em;
           margin-bottom: 0.5em;
         }
-       .gallery {
+        .gallery {
           display: flex;
           flex-wrap: wrap;
           justify-content: center;
@@ -472,6 +474,9 @@ def gallery(sticker):
           {% if record['fields'].get('Scan') %}
             <span><strong>Scan:</strong> {{ record['fields']['Scan'] }}</span>
           {% endif %}
+          {% if comment %}
+            <br><span><strong>Comment:</strong> {{ comment }}</span>
+          {% endif %}
         </div>
         <div class="gallery">
           {% for url in image_urls %}
@@ -491,7 +496,8 @@ def gallery(sticker):
     image_urls=image_urls, 
     zip_url=zip_url, 
     current_year=datetime.now().year,
-    record=record  # ✅ this is required for roll-info to work
+    record=record,
+    comment=comment
     )
 
 @app.route('/roll/<sticker>/order', methods=['GET', 'POST'])
