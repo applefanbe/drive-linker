@@ -530,18 +530,18 @@ def order_page(sticker):
     if not password_ok:
         return render_template_string("""
         <!DOCTYPE html>
-        <html lang="en">
-        <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <html lang=\"en\">
+        <head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
         <title>Enter Password – Roll {{ sticker }}</title>
         <style>body { font-family: Helvetica; text-align: center; margin-top: 100px; }
         input, button { padding: 10px; font-size: 1em; margin-top: 10px; }</style>
         </head>
         <body>
           <h2>Enter password to access Roll {{ sticker }}</h2>
-          <form method="POST">
-            <input type="password" name="password" placeholder="Password" required>
+          <form method=\"POST\">
+            <input type=\"password\" name=\"password\" placeholder=\"Password\" required>
             <br>
-            <button type="submit">Submit</button>
+            <button type=\"submit\">Submit</button>
           </form>
         </body></html>
         """, sticker=sticker)
@@ -574,16 +574,35 @@ def order_page(sticker):
 
     is_half_frame = film_size == "Half Frame"
     is_standard_35mm = film_size == "35mm"
+    image_count = len(image_urls)
 
-    show_whole_roll_buttons = (is_standard_35mm and len(image_urls) >= 20) or (is_half_frame and len(image_urls) >= 20)
+    show_whole_roll_buttons = (is_standard_35mm and image_count >= 20) or (is_half_frame and image_count >= 20)
     show_select_all_button = not show_whole_roll_buttons
     allow_border_option = "Hires" in scan_type
-    roll_label = "Half-Frame Roll" if is_half_frame else "Whole Roll"
-    price_cap = "€25" if is_half_frame else "€15"
 
-    return render_template_string("""
-<!DOCTYPE html>
-<html><head><meta charset="UTF-8">
+    if is_half_frame:
+        roll_label = "Half-Frame Roll"
+        if image_count > 55:
+            price_cap = "€25"
+            cap_explainer = "10x15 prints of all images capped at €25. Extra 10x15 prints: €0.50 each. Other sizes full price."
+        else:
+            price_cap = "€20"
+            cap_explainer = "10x15 prints of all images capped at €20. Extra 10x15 prints: €0.50 each. Other sizes full price."
+    elif is_standard_35mm:
+        roll_label = "Whole Roll"
+        if image_count > 30:
+            price_cap = "€15"
+            cap_explainer = "10x15 prints of all images capped at €15. Extra 10x15 prints: €0.50 each. Other sizes full price."
+        else:
+            price_cap = "€10"
+            cap_explainer = "10x15 prints of all images capped at €10. Extra 10x15 prints: €0.50 each. Other sizes full price."
+    else:
+        roll_label = "Roll"
+        price_cap = "€0"
+        cap_explainer = "Cap rules apply to 10x15 prints only depending on film type and number of images."
+
+    return render_template_string("""<!DOCTYPE html>
+<html><head><meta charset=\"UTF-8\">
 <title>Select Prints – Roll {{ sticker }}</title>
 <style>
 body { font-family: Helvetica; background-color: #fff; color: #333; margin: 0; padding: 0; }
@@ -602,10 +621,15 @@ button:hover:enabled { background: #333; color: #fff; }
 <script>
 function submitWholeRoll(paperType) {
   const isHalfFrame = {{ 'true' if is_half_frame else 'false' }};
-  const priceCap = isHalfFrame ? 25 : 15;
+  const imageCount = {{ image_count }};
+  let cap = 0;
+  if (isHalfFrame) {
+    cap = imageCount > 55 ? 25 : 20;
+  } else {
+    cap = imageCount > 30 ? 15 : 10;
+  }
   const label = isHalfFrame ? "half-frame roll" : "roll";
-  if (!confirm(`This will print the entire ${label} on 10x15 ${paperType} paper. Each print normally costs €0.75. As you've selected 20 or more prints, the total is capped at €${priceCap}. Continue?`)) return;
-
+  if (!confirm(`This will print the entire ${label} on 10x15 ${paperType} paper. Each print normally costs €0.75. As you've selected all images, the total is capped at €${cap}. Continue?`)) return;
   const form = document.createElement('form');
   form.method = 'POST';
   form.action = `/roll/{{ sticker }}/submit-order`;
@@ -618,7 +642,6 @@ function submitWholeRoll(paperType) {
   });
   document.body.appendChild(form); form.submit();
 }
-
 function selectAllImages() {
   document.querySelectorAll('input[name="selected_images"]').forEach(cb => cb.checked = true);
   updateSubmitState();
@@ -643,6 +666,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <div class="container">
   <div><img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; margin-bottom: 20px;"></div>
   <a class="download" href="/roll/{{ sticker }}">&larr; Back to Gallery</a>
+  <p class="note"><strong>{{ cap_explainer }}</strong></p>
   <form method="POST" action="/roll/{{ sticker }}/submit-order">
     <div class="button-row">
       {% if show_whole_roll_buttons %}
@@ -672,13 +696,17 @@ document.addEventListener('DOMContentLoaded', () => {
 </div>
 </body>
 </html>
-    """, sticker=sticker, image_urls=image_urls,
-       show_whole_roll_buttons=show_whole_roll_buttons,
-       show_select_all_button=show_select_all_button,
-       allow_border_option=allow_border_option,
-       is_half_frame=is_half_frame,
-       roll_label=roll_label,
-       price_cap=price_cap)
+""",
+    sticker=sticker,
+    image_urls=image_urls,
+    is_half_frame=is_half_frame,
+    roll_label=roll_label,
+    show_whole_roll_buttons=show_whole_roll_buttons,
+    show_select_all_button=show_select_all_button,
+    allow_border_option=allow_border_option,
+    image_count=image_count,
+    price_cap=price_cap,
+    cap_explainer=cap_explainer)
 
 @app.route('/roll/<sticker>/submit-order', methods=['POST'])
 def submit_order(sticker):
@@ -688,40 +716,53 @@ def submit_order(sticker):
 
     scan_level = record['fields'].get('Scan', '')
     allow_border_option = 'Hires' in scan_level
+    film_size = record['fields'].get('Size', '')
 
     submitted_order = []
-    if 'order[0][url]' in request.form:
-        for key in request.form:
-            if key.startswith('order[') and key.endswith('][url]'):
-                index = key.split('[')[1].split(']')[0]
-                submitted_order.append({
-                    'url': request.form.get(f'order[{index}][url]'),
-                    'size': request.form.get(f'order[{index}][size]', '10x15'),
-                    'paper': request.form.get(f'order[{index}][paper]', 'Glossy'),
-                    'border': request.form.get(f'order[{index}][border]', 'No')
-                })
-    else:
-        urls = request.form.getlist("selected_images")
-        for url in urls:
+    for key in request.form:
+        if key.startswith('order[') and key.endswith('][url]'):
+            index = key.split('[')[1].split(']')[0]
             submitted_order.append({
-                'url': url,
-                'size': '10x15',
-                'paper': 'Glossy',
-                'border': 'No'
+                'url': request.form.get(f'order[{index}][url]'),
+                'size': request.form.get(f'order[{index}][size]', '10x15'),
+                'paper': request.form.get(f'order[{index}][paper]', 'Glossy'),
+                'border': request.form.get(f'order[{index}][border]', 'No'),
+                'quantity': int(request.form.get(f'order[{index}][quantity]', '1'))
             })
 
     if not submitted_order:
         return "No images selected.", 400
 
+    expanded_order = []
+    for item in submitted_order:
+        for _ in range(item['quantity']):
+            expanded_order.append({
+                'url': item['url'],
+                'size': item['size'],
+                'paper': item['paper'],
+                'border': item['border']
+            })
+
+    gallery_count = len({item['url'] for item in expanded_order})
+    if film_size == '35mm':
+        cap_amount = 10 if gallery_count <= 30 else 15
+        cap_limit = gallery_count
+        cap_explainer = f"10x15 prints of all images capped at €{cap_amount}. Extra 10x15 prints: €0.50. Other sizes full price."
+    elif film_size == 'Half Frame':
+        cap_amount = 20 if gallery_count <= 55 else 25
+        cap_limit = gallery_count
+        cap_explainer = f"10x15 prints of all images capped at €{cap_amount}. Extra 10x15 prints: €0.50. Other sizes full price."
+    else:
+        cap_amount = None
+        cap_limit = 0
+        cap_explainer = "Caps apply only to 10x15 prints depending on film type and image count."
+
     return render_template_string("""
     <!DOCTYPE html>
     <html>
     <head>
-      <meta charset="UTF-8">
+      <meta charset=\"UTF-8\">
       <title>Confirm Order – Roll {{ sticker }}</title>
-      <script>
-        const rollSize = "{{ record['fields'].get('Size', '') }}";
-      </script>
       <style>
         body { font-family: Helvetica, sans-serif; background: #fff; color: #333; margin: 0; padding: 0; }
         .container { max-width: 960px; margin: 0 auto; padding: 40px 20px; text-align: center; }
@@ -750,19 +791,6 @@ def submit_order(sticker):
         }
       </style>
       <script>
-        function applyToAll() {
-          const size = document.getElementById('applySize').value;
-          const paper = document.getElementById('applyPaper').value;
-          const border = document.getElementById('applyBorder')?.value;
-          document.querySelectorAll('[data-row]').forEach(row => {
-            if (size !== '—') row.querySelector('.size').value = size;
-            if (paper !== '—') row.querySelector('.paper').value = paper;
-            if (border !== undefined && border !== '—') row.querySelector('.border').value = border;
-            updatePrice(row);
-          });
-          updateTotal();
-        }
-
         function getPrice(size) {
           if (size === '10x15') return 0.75;
           if (size === 'A6') return 1.5;
@@ -771,89 +799,54 @@ def submit_order(sticker):
           if (size === 'A3') return 12.0;
           return 0;
         }
-
-        function updatePrice(row) {
-          const size = row.querySelector('.size').value;
-          const price = getPrice(size);
-          row.querySelector('.price-tag').textContent = `€${price.toFixed(2)}`;
-        }
-
         function updateTotal() {
           let total = 0;
           let count_10x15 = 0;
-          const totalItems = document.querySelectorAll('[data-row]').length;
+          const capAmount = {{ cap_amount if cap_amount else 'null' }};
+          const capLimit = {{ cap_limit }};
+          let printed_10x15 = 0;
           document.querySelectorAll('[data-row]').forEach(row => {
             const size = row.querySelector('.size').value;
             const price = getPrice(size);
-            total += price;
-            if (size === '10x15') count_10x15 += 1;
+            let effectivePrice = price;
+            if (size === '10x15') {
+              printed_10x15++;
+              if (capAmount !== null) {
+                if (printed_10x15 <= capLimit) {
+                  effectivePrice = 0; // temporarily set to 0, apply cap below
+                } else {
+                  effectivePrice = 0.5;
+                }
+              }
+            }
+            total += effectivePrice;
+            row.querySelector('.price-tag').textContent = `€${effectivePrice.toFixed(2)}`;
           });
-          if (count_10x15 === totalItems) {
-            if (rollSize === 'Half Frame') {
-              total = Math.min(total, 25);
-            } else if (rollSize === '35mm' && count_10x15 >= 20) {
-              total = Math.min(total, 15);
+          if (capAmount !== null && printed_10x15 > 0) {
+            if (printed_10x15 <= capLimit) {
+              total = capAmount;
+            } else {
+              total = capAmount + ((printed_10x15 - capLimit) * 0.5);
             }
           }
           document.getElementById('totalDisplay').textContent = `Your order total is €${total.toFixed(2)}`;
         }
-
-        document.addEventListener('DOMContentLoaded', () => {
-          document.querySelectorAll('[data-row]').forEach(row => {
-            row.querySelectorAll('select').forEach(sel => {
-              sel.addEventListener('change', () => {
-                updatePrice(row);
-                updateTotal();
-              });
-            });
-            updatePrice(row);
-          });
-          updateTotal();
-        });
+        document.addEventListener('DOMContentLoaded', updateTotal);
       </script>
     </head>
     <body>
       <div class="container">
         <div><img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; margin-bottom: 20px;"></div>
         <h1>Confirm Your Print Order – Roll {{ sticker }}</h1>
+        <p><strong>{{ cap_explainer }}</strong></p>
         <p class="total-price" id="totalDisplay">Your order total is €0.00</p>
         <form method="POST" action="/roll/{{ sticker }}/review-order">
           <div class="actions">
             <a class="button-link" href="/roll/{{ sticker }}/order">← Back to Selection</a>
             <button type="submit">Review & Pay</button>
           </div>
-          <div class="controls">
-            <label>Size:
-              <select id="applySize">
-                <option>—</option>
-                <option>10x15</option>
-                <option>A6</option>
-                <option>A5</option>
-                <option>A4</option>
-                <option>A3</option>
-              </select>
-            </label>
-            <label>Paper:
-              <select id="applyPaper">
-                <option>—</option>
-                <option>Glossy</option>
-                <option>Matte</option>
-                <option>Luster</option>
-              </select>
-            </label>
-            {% if allow_border_option %}
-            <label>Scan Border:
-              <select id="applyBorder">
-                <option>—</option>
-                <option value="No">No Scan Border</option>
-                <option value="Yes">Print Scan Border</option>
-              </select>
-            </label>
-            {% endif %}
-            <button type="button" onclick="applyToAll()">Apply to All</button>
-          </div>
           <div class="grid">
-            {% for item in submitted_order %}
+            {% for item in expanded_order %}
               <div class="grid-item" data-row>
                 <img src="{{ item.url }}">
                 <div class="selectors">
@@ -889,7 +882,13 @@ def submit_order(sticker):
       </div>
     </body>
     </html>
-    """, sticker=sticker, submitted_order=submitted_order, allow_border_option=allow_border_option, record=record)
+    """,
+    sticker=sticker,
+    expanded_order=expanded_order,
+    allow_border_option=allow_border_option,
+    cap_explainer=cap_explainer,
+    cap_amount=cap_amount,
+    cap_limit=cap_limit)
 
 @app.route('/roll/<sticker>/review-order', methods=['POST'])
 def review_order(sticker):
@@ -899,12 +898,14 @@ def review_order(sticker):
 
     scan_quality = record['fields'].get('Scan', '')
     allow_border = 'Hires' in scan_quality
+    film_size = record['fields'].get('Size', '')
 
     submitted_order = []
     type_counter = {}
     subtotal = 0.0
     tax_rate = 0.21
     count_10x15 = 0
+    gallery_image_urls = set()
 
     for key in request.form:
         if key.startswith('order[') and key.endswith('][url]'):
@@ -913,6 +914,8 @@ def review_order(sticker):
             size = request.form.get(f'order[{index}][size]', '10x15')
             paper = request.form.get(f'order[{index}][paper]', 'Glossy')
             border = request.form.get(f'order[{index}][border]', 'No')
+
+            gallery_image_urls.add(url)
 
             if size == '10x15':
                 count_10x15 += 1
@@ -933,13 +936,22 @@ def review_order(sticker):
             submitted_order.append({'url': url, 'size': size, 'paper': paper, 'border': border, 'price': price})
             subtotal += price
 
-    # Apply cap logic
-    roll_size = record['fields'].get('Size', '')
-    if count_10x15 == len(submitted_order):  # Only 10x15 prints
-        if roll_size == 'Half Frame':
-            subtotal = min(subtotal, 25.0)
-        elif roll_size == '35mm' and count_10x15 >= 20:
-            subtotal = min(subtotal, 15.0)
+    gallery_count = len(gallery_image_urls)
+
+    if film_size == 'Half Frame':
+        cap_amount = 20 if gallery_count <= 55 else 25
+    elif film_size == '35mm':
+        cap_amount = 10 if gallery_count <= 30 else 15
+    else:
+        cap_amount = None
+
+    if cap_amount is not None and count_10x15 > 0:
+        base_10x15 = min(count_10x15, gallery_count)
+        extra_10x15 = count_10x15 - base_10x15
+        subtotal = cap_amount + (extra_10x15 * 0.5)
+        cap_explainer = f"10x15 prints of all images capped at €{cap_amount}. Extra 10x15 prints: €0.50. Other sizes full price."
+    else:
+        cap_explainer = "No cap applied."
 
     tax = subtotal * tax_rate / (1 + tax_rate)
     total = subtotal
@@ -1021,8 +1033,9 @@ def review_order(sticker):
 </head>
 <body>
   <div class="container">
-    <div><img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; margin-bottom: 20px;"></div>
+    <div><img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" class="logo"></div>
     <h1>Review Your Print Order – Roll {{ sticker }}</h1>
+    <p><strong>{{ cap_explainer }}</strong></p>
     <div class="summary">
       <h2>Total: €{{ '%.2f'|format(total) }} (incl. VAT)</h2>
       <form method="POST">
@@ -1039,7 +1052,6 @@ def review_order(sticker):
           <button type="submit" formaction="/roll/{{ sticker }}/finalize-order">Pay with Mollie</button>
         </div>
       </form>
-
       <h3 style="margin-top:30px;">Order Breakdown:</h3>
       {% for type, count in type_counter.items() %}
         <p>{{ count }} × {{ type }}</p>
@@ -1058,7 +1070,14 @@ def review_order(sticker):
   </div>
 </body>
 </html>
-""", sticker=sticker, submitted_order=submitted_order, total=total, tax=tax, type_counter=type_counter, allow_border=allow_border)
+""",
+    sticker=sticker,
+    submitted_order=submitted_order,
+    total=total,
+    tax=tax,
+    type_counter=type_counter,
+    allow_border=allow_border,
+    cap_explainer=cap_explainer)
 
 @app.route('/roll/<sticker>/finalize-order', methods=['POST'])
 def finalize_order(sticker):
@@ -1078,6 +1097,7 @@ def finalize_order(sticker):
     submitted_order = []
     total = 0.0
     count_10x15 = 0
+    gallery_image_urls = set()
 
     for key in request.form:
         if key.startswith('order[') and key.endswith('][url]'):
@@ -1097,6 +1117,7 @@ def finalize_order(sticker):
             if size == '10x15':
                 count_10x15 += 1
                 total += 0.75
+                gallery_image_urls.add(url)
             elif size == 'A6':
                 total += 1.5
             elif size == 'A5':
@@ -1107,14 +1128,19 @@ def finalize_order(sticker):
                 total += 12.0
 
     roll_size = record['fields'].get('Size', '')
+    gallery_count = len(gallery_image_urls)
 
-    if count_10x15 == len(submitted_order):  # All prints are 10x15
-        if roll_size == 'Half Frame':
-            capped_total = min(total, 25.0)
-        elif roll_size == '35mm' and count_10x15 >= 20:
-            capped_total = min(total, 15.0)
-        else:
-            capped_total = total
+    if roll_size == 'Half Frame':
+        cap_amount = 20 if gallery_count <= 55 else 25
+    elif roll_size == '35mm':
+        cap_amount = 10 if gallery_count <= 30 else 15
+    else:
+        cap_amount = None
+
+    if cap_amount is not None and count_10x15 > 0:
+        base_10x15 = min(count_10x15, gallery_count)
+        extra_10x15 = count_10x15 - base_10x15
+        capped_total = cap_amount + (extra_10x15 * 0.5)
     else:
         capped_total = total
 
@@ -1151,6 +1177,25 @@ def thank_you(sticker):
     fields = record['fields']
     raw_email = fields.get('Client Email', 'your email')
     email = str(raw_email).strip('"').strip("'") if raw_email else 'your email'
+    print_order = fields.get('Print Order', [])
+
+    subtotal = 0.0
+    for item in print_order:
+        size = item.get('size', '10x15')
+        if size == '10x15':
+            subtotal += 0.75
+        elif size == 'A6':
+            subtotal += 1.5
+        elif size == 'A5':
+            subtotal += 3.0
+        elif size == 'A4':
+            subtotal += 6.0
+        elif size == 'A3':
+            subtotal += 12.0
+
+    tax_rate = 0.21
+    tax = subtotal * tax_rate / (1 + tax_rate)
+    total = subtotal
 
     return render_template_string(f"""
     <!DOCTYPE html>
@@ -1169,7 +1214,7 @@ def thank_you(sticker):
             }}
             .wrapper {{
                 padding: 60px 20px;
-                max-width: 600px;
+                max-width: 700px;
                 margin: auto;
             }}
             h1 {{
@@ -1181,9 +1226,16 @@ def thank_you(sticker):
                 margin-bottom: 20px;
                 line-height: 1.5;
             }}
-            img {{
+            img.logo {{
                 max-width: 200px;
                 margin-bottom: 30px;
+            }}
+            img.thumb {{
+                max-width: 120px;
+                height: auto;
+                margin: 8px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
             }}
             a.button {{
                 display: inline-block;
@@ -1200,15 +1252,32 @@ def thank_you(sticker):
                 background: #333;
                 color: #fff;
             }}
+            .order-summary {{
+                margin-top: 40px;
+                text-align: left;
+            }}
+            .order-summary h2 {{
+                font-size: 1.2em;
+                border-bottom: 1px solid #ccc;
+                padding-bottom: 6px;
+                margin-bottom: 12px;
+            }}
         </style>
     </head>
     <body>
         <div class="wrapper">
-            <img src='https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png' alt='Logo'>
+            <img class='logo' src='https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png' alt='Logo'>
             <h1>Thank you for your order!</h1>
             <p>Your payment was successful and your print order for roll <strong>{sticker}</strong> has been received.</p>
             <p>You’ll receive a confirmation email shortly at <strong>{email}</strong>.</p>
             <a class="button" href='/roll/{sticker}'>← Back to Gallery</a>
+
+            <div class="order-summary">
+                <h2>Print Order Summary:</h2>
+                {''.join(f"<p>{item.get('size', '')} – {item.get('paper', '')} – Border: {item.get('border', 'No')}</p><img class='thumb' src='{item.get('url', '')}'>" for item in print_order)}
+                <p><strong>Total (incl. VAT):</strong> €{total:.2f}</p>
+                <p><strong>VAT (21%):</strong> €{tax:.2f}</p>
+            </div>
         </div>
     </body>
     </html>
