@@ -708,7 +708,6 @@ document.addEventListener('DOMContentLoaded', () => {
     price_cap=price_cap,
     cap_explainer=cap_explainer)
 
-// full updated route with JS pricing logic included
 @app.route('/roll/<sticker>/submit-order', methods=['POST'])
 def submit_order(sticker):
     record = find_airtable_record(sticker)
