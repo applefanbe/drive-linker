@@ -790,7 +790,8 @@ def submit_order(sticker):
     select, input[type=number] {{ padding: 4px 6px; font-size: 0.95em; }}
     button {{ padding: 10px 20px; font-size: 1em; border: 2px solid #333; background: #fff; cursor: pointer; border-radius: 4px; }}
     button:hover {{ background: #333; color: #fff; }}
-    .add-btn {{ position: absolute; top: 6px; right: 10px; font-weight: bold; border: none; background: none; cursor: pointer; }}
+    .add-btn-wrapper {{ margin-top: 10px; }}
+    .add-btn {{ font-weight: bold; background: none; border: none; cursor: pointer; font-size: 0.95em; color: #333; text-decoration: underline; }}
     </style>
     <script>
     function duplicateRow(button) {{
@@ -866,10 +867,10 @@ def submit_order(sticker):
       <form method='POST' action='/roll/{sticker}/review-order'>
         <div class='grid'>
     """
+
     for i, item in enumerate(expanded_order):
         html += f"""
         <div class='grid-item'>
-          <button type='button' class='add-btn' onclick='duplicateRow(this)'>+</button>
           <img src='{item['url']}' alt='Scan {i+1}' style='max-height:180px; width:auto;'>
           <div class='selectors'>
             <select name='order[{i}][size]'>
@@ -885,6 +886,7 @@ def submit_order(sticker):
               <option {'selected' if item['paper']=='Luster' else ''}>Luster</option>
             </select>
         """
+
         if allow_border_option:
             html += f"<select name='order[{i}][border]'><option value='No' {'selected' if item['border']=='No' else ''}>No Scan Border</option><option value='Yes' {'selected' if item['border']=='Yes' else ''}>Print Scan Border</option></select>"
         else:
@@ -895,6 +897,9 @@ def submit_order(sticker):
           </div>
           <div class='price-tag'>€0.00</div>
           <input type='hidden' name='order[{i}][url]' value='{item['url']}'>
+          <div class='add-btn-wrapper'>
+            <button type='button' class='add-btn' onclick='duplicateRow(this)'>+ add extra size/paper</button>
+          </div>
         </div>
         """
 
@@ -906,7 +911,8 @@ def submit_order(sticker):
         </div>
       </form>
     </div>
-    </body></html>"""		
+    </body></html>
+    """
 
     return html
 
