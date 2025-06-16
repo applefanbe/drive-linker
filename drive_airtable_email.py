@@ -530,18 +530,18 @@ def order_page(sticker):
     if not password_ok:
         return render_template_string("""
         <!DOCTYPE html>
-        <html lang=\"en\">
-        <head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+        <html lang="en">
+        <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Enter Password – Roll {{ sticker }}</title>
         <style>body { font-family: Helvetica; text-align: center; margin-top: 100px; }
         input, button { padding: 10px; font-size: 1em; margin-top: 10px; }</style>
         </head>
         <body>
           <h2>Enter password to access Roll {{ sticker }}</h2>
-          <form method=\"POST\">
-            <input type=\"password\" name=\"password\" placeholder=\"Password\" required>
+          <form method="POST">
+            <input type="password" name="password" placeholder="Password" required>
             <br>
-            <button type=\"submit\">Submit</button>
+            <button type="submit">Submit</button>
           </form>
         </body></html>
         """, sticker=sticker)
@@ -574,35 +574,16 @@ def order_page(sticker):
 
     is_half_frame = film_size == "Half Frame"
     is_standard_35mm = film_size == "35mm"
-    image_count = len(image_urls)
 
-    show_whole_roll_buttons = (is_standard_35mm and image_count >= 20) or (is_half_frame and image_count >= 20)
+    show_whole_roll_buttons = (is_standard_35mm and len(image_urls) >= 20) or (is_half_frame and len(image_urls) >= 20)
     show_select_all_button = not show_whole_roll_buttons
     allow_border_option = "Hires" in scan_type
+    roll_label = "Half-Frame Roll" if is_half_frame else "Whole Roll"
+    price_cap = "€25" if is_half_frame else "€15"
 
-    if is_half_frame:
-        roll_label = "Half-Frame Roll"
-        if image_count > 55:
-            price_cap = "€25"
-            cap_explainer = "10x15 prints of all images capped at €25. Extra 10x15 prints: €0.50 each. Other sizes full price."
-        else:
-            price_cap = "€20"
-            cap_explainer = "10x15 prints of all images capped at €20. Extra 10x15 prints: €0.50 each. Other sizes full price."
-    elif is_standard_35mm:
-        roll_label = "Whole Roll"
-        if image_count > 30:
-            price_cap = "€15"
-            cap_explainer = "10x15 prints of all images capped at €15. Extra 10x15 prints: €0.50 each. Other sizes full price."
-        else:
-            price_cap = "€10"
-            cap_explainer = "10x15 prints of all images capped at €10. Extra 10x15 prints: €0.50 each. Other sizes full price."
-    else:
-        roll_label = "Roll"
-        price_cap = "€0"
-        cap_explainer = "Cap rules apply to 10x15 prints only depending on film type and number of images."
-
-    return render_template_string("""<!DOCTYPE html>
-<html><head><meta charset=\"UTF-8\">
+    return render_template_string("""
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
 <title>Select Prints – Roll {{ sticker }}</title>
 <style>
 body { font-family: Helvetica; background-color: #fff; color: #333; margin: 0; padding: 0; }
@@ -621,15 +602,10 @@ button:hover:enabled { background: #333; color: #fff; }
 <script>
 function submitWholeRoll(paperType) {
   const isHalfFrame = {{ 'true' if is_half_frame else 'false' }};
-  const imageCount = {{ image_count }};
-  let cap = 0;
-  if (isHalfFrame) {
-    cap = imageCount > 55 ? 25 : 20;
-  } else {
-    cap = imageCount > 30 ? 15 : 10;
-  }
+  const priceCap = isHalfFrame ? 25 : 15;
   const label = isHalfFrame ? "half-frame roll" : "roll";
-  if (!confirm(`This will print the entire ${label} on 10x15 ${paperType} paper. Each print normally costs €0.75. As you've selected all images, the total is capped at €${cap}. Continue?`)) return;
+  if (!confirm(`This will print the entire ${label} on 10x15 ${paperType} paper. Each print normally costs €0.75. As you've selected 20 or more prints, the total is capped at €${priceCap}. Continue?`)) return;
+
   const form = document.createElement('form');
   form.method = 'POST';
   form.action = `/roll/{{ sticker }}/submit-order`;
@@ -642,6 +618,7 @@ function submitWholeRoll(paperType) {
   });
   document.body.appendChild(form); form.submit();
 }
+
 function selectAllImages() {
   document.querySelectorAll('input[name="selected_images"]').forEach(cb => cb.checked = true);
   updateSubmitState();
@@ -666,7 +643,6 @@ document.addEventListener('DOMContentLoaded', () => {
 <div class="container">
   <div><img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; margin-bottom: 20px;"></div>
   <a class="download" href="/roll/{{ sticker }}">&larr; Back to Gallery</a>
-  <p class="note"><strong>{{ cap_explainer }}</strong></p>
   <form method="POST" action="/roll/{{ sticker }}/submit-order">
     <div class="button-row">
       {% if show_whole_roll_buttons %}
@@ -696,17 +672,13 @@ document.addEventListener('DOMContentLoaded', () => {
 </div>
 </body>
 </html>
-""",
-    sticker=sticker,
-    image_urls=image_urls,
-    is_half_frame=is_half_frame,
-    roll_label=roll_label,
-    show_whole_roll_buttons=show_whole_roll_buttons,
-    show_select_all_button=show_select_all_button,
-    allow_border_option=allow_border_option,
-    image_count=image_count,
-    price_cap=price_cap,
-    cap_explainer=cap_explainer)
+    """, sticker=sticker, image_urls=image_urls,
+       show_whole_roll_buttons=show_whole_roll_buttons,
+       show_select_all_button=show_select_all_button,
+       allow_border_option=allow_border_option,
+       is_half_frame=is_half_frame,
+       roll_label=roll_label,
+       price_cap=price_cap)
 
 @app.route('/roll/<sticker>/submit-order', methods=['POST'])
 def submit_order(sticker):
@@ -716,208 +688,208 @@ def submit_order(sticker):
 
     scan_level = record['fields'].get('Scan', '')
     allow_border_option = 'Hires' in scan_level
-    film_size = record['fields'].get('Size', '')
 
     submitted_order = []
-    for key in request.form:
-        if key.startswith('order[') and key.endswith('][url]'):
-            index = key.split('[')[1].split(']')[0]
-            submitted_order.append({
-                'url': request.form.get(f'order[{index}][url]'),
-                'size': request.form.get(f'order[{index}][size]', '10x15'),
-                'paper': request.form.get(f'order[{index}][paper]', 'Glossy'),
-                'border': request.form.get(f'order[{index}][border]', 'No'),
-                'quantity': int(request.form.get(f'order[{index}][quantity]', '1'))
-            })
-
-    if not submitted_order:
+    if 'order[0][url]' in request.form:
+        for key in request.form:
+            if key.startswith('order[') and key.endswith('][url]'):
+                index = key.split('[')[1].split(']')[0]
+                submitted_order.append({
+                    'url': request.form.get(f'order[{index}][url]'),
+                    'size': request.form.get(f'order[{index}][size]', '10x15'),
+                    'paper': request.form.get(f'order[{index}][paper]', 'Glossy'),
+                    'border': request.form.get(f'order[{index}][border]', 'No')
+                })
+    else:
         urls = request.form.getlist("selected_images")
-        for i, url in enumerate(urls):
+        for url in urls:
             submitted_order.append({
                 'url': url,
                 'size': '10x15',
                 'paper': 'Glossy',
-                'border': 'No',
-                'quantity': 1
+                'border': 'No'
             })
 
     if not submitted_order:
         return "No images selected.", 400
 
-    expanded_order = []
-    for item in submitted_order:
-        for _ in range(item['quantity']):
-            expanded_order.append({
-                'url': item['url'],
-                'size': item['size'],
-                'paper': item['paper'],
-                'border': item['border']
-            })
-
-    url_counter = {}
-    for item in expanded_order:
-        url_counter[item['url']] = url_counter.get(item['url'], 0) + 1
-
-    gallery_count = len(url_counter)
-    if film_size == '35mm':
-        cap_amount = 10 if gallery_count <= 30 else 15
-        cap_limit = gallery_count
-    elif film_size == 'Half Frame':
-        cap_amount = 20 if gallery_count <= 55 else 25
-        cap_limit = gallery_count
-    else:
-        cap_amount = None
-        cap_limit = 0
-
-    cap_explainer = (
-        f"10x15 prints of all images capped at €{cap_amount}. Extra 10x15 prints: €0.50 each. Other sizes full price."
-        if cap_amount else
-        "Caps apply only to 10x15 prints depending on film type and number of images."
-    )
-
-    html = f"""
+    return render_template_string("""
     <!DOCTYPE html>
-    <html><head><meta charset='UTF-8'>
-    <title>Confirm Order – Roll {sticker}</title>
-    <style>
-    body {{ font-family: Helvetica; background: #fff; margin: 0; padding: 20px; }}
-    .container {{ max-width: 960px; margin: auto; text-align: center; }}
-    .grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-top: 20px; }}
-    .grid-item {{ border: 1px solid #ccc; border-radius: 6px; padding: 12px; position: relative; }}
-    .selectors {{ margin-top: 8px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }}
-    .total {{ font-size: 1.2em; margin-top: 20px; }}
-    .price-tag {{ font-size: 0.9em; color: #555; margin-top: 6px; }}
-    select, input[type=number] {{ padding: 4px 6px; font-size: 0.95em; }}
-    button {{ padding: 10px 20px; font-size: 1em; border: 2px solid #333; background: #fff; cursor: pointer; border-radius: 4px; }}
-    button:hover {{ background: #333; color: #fff; }}
-    .add-btn-wrapper {{ margin-top: 10px; }}
-    .add-btn {{ font-weight: bold; background: none; border: none; cursor: pointer; font-size: 0.95em; color: #333; text-decoration: underline; }}
-    </style>
-    <script>
-    function duplicateRow(button) {{
-        const item = button.closest('.grid-item');
-        const clone = item.cloneNode(true);
-        const index = document.querySelectorAll('.grid-item').length;
-        clone.querySelectorAll('select, input').forEach(input => {{
-            if (input.name.includes('order[')) {{
-                const field = input.name.split('][')[1].replace(']', '');
-                input.name = `order[${{index}}][${{field}}]`;
-                if (input.classList.contains('price-tag')) input.textContent = '€0.00';
-            }}
-        }});
-        item.parentNode.insertBefore(clone, item.nextSibling);
-        updatePrices();
-    }}
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Confirm Order – Roll {{ sticker }}</title>
+      <script>
+        const rollSize = "{{ record['fields'].get('Size', '') }}";
+      </script>
+      <style>
+        body { font-family: Helvetica, sans-serif; background: #fff; color: #333; margin: 0; padding: 0; }
+        .container { max-width: 960px; margin: 0 auto; padding: 40px 20px; text-align: center; }
+        .controls { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-bottom: 30px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 40px; }
+        .grid-item { border: 1px solid #ccc; border-radius: 6px; padding: 12px; text-align: center; }
+        .grid-item img { max-height: 180px; width: auto; margin-bottom: 10px; }
+        .selectors { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+        .price-tag { font-size: 0.95em; color: #555; margin-top: 4px; }
+        select { padding: 4px 6px; font-size: 0.95em; }
+        .actions { margin: 20px 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+        .total-price { font-size: 1.2em; margin-top: 10px; }
+        button, .button-link {
+          padding: 10px 20px;
+          font-size: 1em;
+          border: 2px solid #333;
+          border-radius: 4px;
+          background: #fff;
+          color: #333;
+          cursor: pointer;
+          text-decoration: none;
+        }
+        button:hover, .button-link:hover {
+          background: #333;
+          color: #fff;
+        }
+      </style>
+      <script>
+        function applyToAll() {
+          const size = document.getElementById('applySize').value;
+          const paper = document.getElementById('applyPaper').value;
+          const border = document.getElementById('applyBorder')?.value;
+          document.querySelectorAll('[data-row]').forEach(row => {
+            if (size !== '—') row.querySelector('.size').value = size;
+            if (paper !== '—') row.querySelector('.paper').value = paper;
+            if (border !== undefined && border !== '—') row.querySelector('.border').value = border;
+            updatePrice(row);
+          });
+          updateTotal();
+        }
 
-    function getPrice(size) {{
-        if (size === '10x15') return 0.75;
-        if (size === 'A6') return 1.5;
-        if (size === 'A5') return 3.0;
-        if (size === 'A4') return 6.0;
-        if (size === 'A3') return 12.0;
-        return 0;
-    }}
+        function getPrice(size) {
+          if (size === '10x15') return 0.75;
+          if (size === 'A6') return 1.5;
+          if (size === 'A5') return 3.0;
+          if (size === 'A4') return 6.0;
+          if (size === 'A3') return 12.0;
+          return 0;
+        }
 
-    function updatePrices() {{
-        let count10x15 = 0;
-        let capLimit = {cap_limit};
-        let capAmount = {cap_amount if cap_amount is not None else 'null'};
-        let total = 0;
-        const allUrls = new Set();
+        function updatePrice(row) {
+          const size = row.querySelector('.size').value;
+          const price = getPrice(size);
+          row.querySelector('.price-tag').textContent = `€${price.toFixed(2)}`;
+        }
 
-        document.querySelectorAll('.grid-item').forEach(row => {{
-            const url = row.querySelector('input[name$="[url]"]').value;
-            allUrls.add(url);
-        }});
+        function updateTotal() {
+          let total = 0;
+          let count_10x15 = 0;
+          const totalItems = document.querySelectorAll('[data-row]').length;
+          document.querySelectorAll('[data-row]').forEach(row => {
+            const size = row.querySelector('.size').value;
+            const price = getPrice(size);
+            total += price;
+            if (size === '10x15') count_10x15 += 1;
+          });
+          if (count_10x15 === totalItems) {
+            if (rollSize === 'Half Frame') {
+              total = Math.min(total, 25);
+            } else if (rollSize === '35mm' && count_10x15 >= 20) {
+              total = Math.min(total, 15);
+            }
+          }
+          document.getElementById('totalDisplay').textContent = `Your order total is €${total.toFixed(2)}`;
+        }
 
-        const isFullRoll = capAmount !== null && allUrls.size >= capLimit;
-
-        document.querySelectorAll('.grid-item').forEach(row => {{
-            const size = row.querySelector('select[name$="[size]"]').value;
-            const quantity = parseInt(row.querySelector('input[type=number]').value) || 1;
-            const url = row.querySelector('input[name$="[url]"]').value;
-            let rowTotal = 0;
-
-            if (size === '10x15' && isFullRoll) {{
-                for (let i = 0; i < quantity; i++) {{
-                    if (count10x15 < capLimit) {{
-                        rowTotal += capAmount / capLimit;
-                    }} else {{
-                        rowTotal += 0.5;
-                    }}
-                    count10x15++;
-                }}
-            }} else {{
-                rowTotal = getPrice(size) * quantity;
-            }}
-
-            row.querySelector('.price-tag').textContent = `€${{rowTotal.toFixed(2)}}`;
-            total += rowTotal;
-        }});
-
-        document.getElementById('totalDisplay').textContent = `Order total: €${{total.toFixed(2)}}`;
-    }}
-
-    document.addEventListener('DOMContentLoaded', () => {{
-        document.querySelectorAll('select, input[type=number]').forEach(el => el.addEventListener('change', updatePrices));
-        updatePrices();
-    }});
-    </script>
-    </head><body>
-    <div class='container'>
-      <h1>Confirm Your Print Order – Roll {sticker}</h1>
-      <p><strong>{cap_explainer}</strong></p>
-      <p class='total' id='totalDisplay'>Order total: €0.00</p>
-      <form method='POST' action='/roll/{sticker}/review-order'>
-        <div class='grid'>
-    """
-
-    for i, item in enumerate(expanded_order):
-        html += f"""
-        <div class='grid-item'>
-          <img src='{item['url']}' alt='Scan {i+1}' style='max-height:180px; width:auto;'>
-          <div class='selectors'>
-            <select name='order[{i}][size]'>
-              <option {'selected' if item['size']=='10x15' else ''}>10x15</option>
-              <option {'selected' if item['size']=='A6' else ''}>A6</option>
-              <option {'selected' if item['size']=='A5' else ''}>A5</option>
-              <option {'selected' if item['size']=='A4' else ''}>A4</option>
-              <option {'selected' if item['size']=='A3' else ''}>A3</option>
-            </select>
-            <select name='order[{i}][paper]'>
-              <option {'selected' if item['paper']=='Glossy' else ''}>Glossy</option>
-              <option {'selected' if item['paper']=='Matte' else ''}>Matte</option>
-              <option {'selected' if item['paper']=='Luster' else ''}>Luster</option>
-            </select>
-        """
-        if allow_border_option:
-            html += f"<select name='order[{i}][border]'><option value='No' {'selected' if item['border']=='No' else ''}>No Scan Border</option><option value='Yes' {'selected' if item['border']=='Yes' else ''}>Print Scan Border</option></select>"
-        else:
-            html += f"<input type='hidden' name='order[{i}][border]' value='No'>"
-
-        html += f"""
-            <input type='number' name='order[{i}][quantity]' value='1' min='1' style='width: 60px;'>
+        document.addEventListener('DOMContentLoaded', () => {
+          document.querySelectorAll('[data-row]').forEach(row => {
+            row.querySelectorAll('select').forEach(sel => {
+              sel.addEventListener('change', () => {
+                updatePrice(row);
+                updateTotal();
+              });
+            });
+            updatePrice(row);
+          });
+          updateTotal();
+        });
+      </script>
+    </head>
+    <body>
+      <div class="container">
+        <div><img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; margin-bottom: 20px;"></div>
+        <h1>Confirm Your Print Order – Roll {{ sticker }}</h1>
+        <p class="total-price" id="totalDisplay">Your order total is €0.00</p>
+        <form method="POST" action="/roll/{{ sticker }}/review-order">
+          <div class="actions">
+            <a class="button-link" href="/roll/{{ sticker }}/order">← Back to Selection</a>
+            <button type="submit">Review & Pay</button>
           </div>
-          <div class='price-tag'>€0.00</div>
-          <input type='hidden' name='order[{i}][url]' value='{item['url']}'>
-          <div class='add-btn-wrapper'>
-            <button type='button' class='add-btn' onclick='duplicateRow(this)'>+ add extra size/paper</button>
+          <div class="controls">
+            <label>Size:
+              <select id="applySize">
+                <option>—</option>
+                <option>10x15</option>
+                <option>A6</option>
+                <option>A5</option>
+                <option>A4</option>
+                <option>A3</option>
+              </select>
+            </label>
+            <label>Paper:
+              <select id="applyPaper">
+                <option>—</option>
+                <option>Glossy</option>
+                <option>Matte</option>
+                <option>Luster</option>
+              </select>
+            </label>
+            {% if allow_border_option %}
+            <label>Scan Border:
+              <select id="applyBorder">
+                <option>—</option>
+                <option value="No">No Scan Border</option>
+                <option value="Yes">Print Scan Border</option>
+              </select>
+            </label>
+            {% endif %}
+            <button type="button" onclick="applyToAll()">Apply to All</button>
           </div>
-        </div>
-        """
-
-    html += f"""
-        </div>
-        <div style='margin-top: 30px;'>
-          <a href='/roll/{sticker}/order'><button type='button'>← Back to Selection</button></a>
-          <button type='submit'>Review & Pay</button>
-        </div>
-      </form>
-    </div>
-    </body></html>
-    """
-
-    return html
+          <div class="grid">
+            {% for item in submitted_order %}
+              <div class="grid-item" data-row>
+                <img src="{{ item.url }}">
+                <div class="selectors">
+                  <select name="order[{{ loop.index0 }}][size]" class="size">
+                    <option {% if item.size == '10x15' %}selected{% endif %}>10x15</option>
+                    <option {% if item.size == 'A6' %}selected{% endif %}>A6</option>
+                    <option {% if item.size == 'A5' %}selected{% endif %}>A5</option>
+                    <option {% if item.size == 'A4' %}selected{% endif %}>A4</option>
+                    <option {% if item.size == 'A3' %}selected{% endif %}>A3</option>
+                  </select>
+                  <select name="order[{{ loop.index0 }}][paper]" class="paper">
+                    <option {% if item.paper == 'Glossy' %}selected{% endif %}>Glossy</option>
+                    <option {% if item.paper == 'Matte' %}selected{% endif %}>Matte</option>
+                    <option {% if item.paper == 'Luster' %}selected{% endif %}>Luster</option>
+                  </select>
+                  {% if allow_border_option %}
+                  <select name="order[{{ loop.index0 }}][border]" class="border">
+                    <option value="No" {% if item.border == 'No' %}selected{% endif %}>No Scan Border</option>
+                    <option value="Yes" {% if item.border == 'Yes' %}selected{% endif %}>Print Scan Border</option>
+                  </select>
+                  {% else %}
+                  <input type="hidden" name="order[{{ loop.index0 }}][border]" value="No">
+                  {% endif %}
+                </div>
+                <div class="price-tag">€0.00</div>
+                <input type="hidden" name="order[{{ loop.index0 }}][url]" value="{{ item.url }}">
+              </div>
+            {% endfor %}
+          </div>
+          <div style="margin-bottom: 40px;"></div>
+          <button type="submit">Review & Pay</button>
+        </form>
+      </div>
+    </body>
+    </html>
+    """, sticker=sticker, submitted_order=submitted_order, allow_border_option=allow_border_option, record=record)
 
 @app.route('/roll/<sticker>/review-order', methods=['POST'])
 def review_order(sticker):
@@ -927,14 +899,12 @@ def review_order(sticker):
 
     scan_quality = record['fields'].get('Scan', '')
     allow_border = 'Hires' in scan_quality
-    film_size = record['fields'].get('Size', '')
 
     submitted_order = []
-    gallery_image_urls = set()
-    count_10x15 = 0
-    total = 0.0
     type_counter = {}
+    subtotal = 0.0
     tax_rate = 0.21
+    count_10x15 = 0
 
     for key in request.form:
         if key.startswith('order[') and key.endswith('][url]'):
@@ -943,135 +913,152 @@ def review_order(sticker):
             size = request.form.get(f'order[{index}][size]', '10x15')
             paper = request.form.get(f'order[{index}][paper]', 'Glossy')
             border = request.form.get(f'order[{index}][border]', 'No')
-            quantity = int(request.form.get(f'order[{index}][quantity]', '1'))
 
-            gallery_image_urls.add(url)
-
-            for _ in range(quantity):
-                submitted_order.append({
-                    'url': url,
-                    'size': size,
-                    'paper': paper,
-                    'border': border,
-                    'quantity': 1  # flattened to 1 for per-print calc
-                })
-
-    gallery_count = len(gallery_image_urls)
-    cap_amount = None
-    cap_limit = 0
-
-    if film_size == 'Half Frame':
-        cap_amount = 20 if gallery_count <= 55 else 25
-        cap_limit = gallery_count
-    elif film_size == '35mm':
-        cap_amount = 10 if gallery_count <= 30 else 15
-        cap_limit = gallery_count
-
-    detailed_order = []
-    grouped_by_url = {}
-
-    # determine if this is a full roll
-    is_full_roll = cap_amount is not None and gallery_count >= cap_limit
-
-    for item in submitted_order:
-        price = 0.0
-        if item['size'] == '10x15':
-            if is_full_roll:
-                if count_10x15 < cap_limit:
-                    price = cap_amount / cap_limit
-                else:
-                    price = 0.5
+            if size == '10x15':
                 count_10x15 += 1
-            else:
                 price = 0.75
-        elif item['size'] == 'A6':
-            price = 1.5
-        elif item['size'] == 'A5':
-            price = 3.0
-        elif item['size'] == 'A4':
-            price = 6.0
-        elif item['size'] == 'A3':
-            price = 12.0
+            elif size == 'A6':
+                price = 1.5
+            elif size == 'A5':
+                price = 3.0
+            elif size == 'A4':
+                price = 6.0
+            elif size == 'A3':
+                price = 12.0
+            else:
+                price = 0.0
 
-        total += price
-        label = f"1× {item['size']} – {item['paper']}"
-        type_counter[label] = type_counter.get(label, 0) + 1
+            key_type = f"{size} - {paper}"
+            type_counter[key_type] = type_counter.get(key_type, 0) + 1
+            submitted_order.append({'url': url, 'size': size, 'paper': paper, 'border': border, 'price': price})
+            subtotal += price
 
-        key = item['url']
-        if key not in grouped_by_url:
-            grouped_by_url[key] = []
-        grouped_by_url[key].append({**item, 'price': price})
+    # Apply cap logic
+    roll_size = record['fields'].get('Size', '')
+    if count_10x15 == len(submitted_order):  # Only 10x15 prints
+        if roll_size == 'Half Frame':
+            subtotal = min(subtotal, 25.0)
+        elif roll_size == '35mm' and count_10x15 >= 20:
+            subtotal = min(subtotal, 15.0)
 
-    if cap_amount is not None and is_full_roll:
-        base = min(count_10x15, cap_limit)
-        extra = count_10x15 - base
-        total = cap_amount + (extra * 0.5)
-        cap_explainer = f"10x15 prints of all images capped at €{cap_amount}. Extra 10x15 prints: €0.50. Other sizes full price."
-    else:
-        cap_explainer = "No cap applied."
+    tax = subtotal * tax_rate / (1 + tax_rate)
+    total = subtotal
 
-    tax = total * tax_rate / (1 + tax_rate)
-
-    return render_template_string("""<html><head><meta charset='UTF-8'><title>Review Print Order – Roll {{ sticker }}</title>
-    <style>
-    body {{ font-family: Helvetica, sans-serif; background: #fff; margin: 0; padding: 40px 20px; color: #333; }}
-    .container {{ max-width: 960px; margin: auto; text-align: center; }}
-    .summary {{ margin: 20px 0; }}
-    .grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-top: 30px; }}
-    .grid-item {{ border: 1px solid #ccc; padding: 10px; border-radius: 6px; }}
-    .grid-item img {{ max-height: 180px; display: block; margin: 0 auto 10px; }}
-    .logo {{ max-width: 200px; margin-bottom: 20px; }}
-    .button-row {{ display: flex; gap: 10px; justify-content: center; margin-top: 30px; flex-wrap: wrap; }}
-    button {{ padding: 12px 24px; border: 2px solid #333; background: #fff; cursor: pointer; font-size: 1em; border-radius: 4px; }}
-    button:hover {{ background: #333; color: #fff; }}
-    </style></head><body>
-    <div class='container'>
-      <img src='https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png' class='logo'>
-      <h1>Review Your Print Order – Roll {{ sticker }}</h1>
-      <p><strong>{{ cap_explainer }}</strong></p>
-      <div class='summary'>
-        <h2>Total: €{{ '%.2f'|format(total) }} (incl. VAT)</h2>
-        <form method='POST'>
-          {% set i = 0 %}
-          {% for url, prints in grouped_by_url.items() %}
-            {% for item in prints %}
-              <input type='hidden' name='order[{{ i }}][url]' value='{{ item.url }}'>
-              <input type='hidden' name='order[{{ i }}][size]' value='{{ item.size }}'>
-              <input type='hidden' name='order[{{ i }}][paper]' value='{{ item.paper }}'>
-              <input type='hidden' name='order[{{ i }}][quantity]' value='1'>
-              {% if allow_border %}<input type='hidden' name='order[{{ i }}][border]' value='{{ item.border }}'>{% endif %}
-              {% set i = i + 1 %}
-            {% endfor %}
-          {% endfor %}
-          <div class='button-row'>
-            <button type='submit' formaction='/roll/{{ sticker }}/submit-order'>&larr; Back to Edit</button>
-            <button type='submit' formaction='/roll/{{ sticker }}/finalize-order'>Pay with Mollie</button>
-          </div>
-        </form>
-        <h3 style='margin-top:30px;'>Order Breakdown:</h3>
-        {% for label, count in type_counter.items() %}<p>{{ count }}x {{ label }}</p>{% endfor %}
-        <p>Subtotal (excl. VAT): €{{ '%.2f'|format(total - tax) }}</p>
-        <p>VAT (21%): €{{ '%.2f'|format(tax) }}</p>
-      </div>
-      <div class='grid'>
-        {% for url, prints in grouped_by_url.items() %}
-          <div class='grid-item'>
-            <img src='{{ url }}'>
-            {% for item in prints %}
-              <p>1x {{ item.size }} – {{ item.paper }}<br>€{{ '%.2f'|format(item.price) }}</p>
-            {% endfor %}
-          </div>
+    return render_template_string("""
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Review Print Order – Roll {{ sticker }}</title>
+  <style>
+    body {
+      font-family: Helvetica, sans-serif;
+      background-color: #fff;
+      color: #333;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      text-align: center;
+    }
+    .summary {
+      margin: 20px 0 30px 0;
+    }
+    .summary h2 {
+      margin-bottom: 10px;
+    }
+    .summary p {
+      margin: 4px 0;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+    }
+    .grid-item {
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 10px;
+    }
+    .grid-item img {
+      height: 180px;
+      width: auto;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto 10px auto;
+    }
+    .button-row {
+      margin-top: 20px;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .button-row button {
+      padding: 12px 24px;
+      font-size: 1em;
+      border: 2px solid #333;
+      border-radius: 4px;
+      background: #fff;
+      color: #333;
+      cursor: pointer;
+      transition: background 0.3s, color 0.3s;
+    }
+    .button-row button:hover,
+    .button-row button:active {
+      background: #333;
+      color: #fff;
+    }
+    .logo {
+      max-width: 200px;
+      margin: 20px auto 30px;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div><img src="https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png" alt="Logo" style="max-width: 200px; margin-bottom: 20px;"></div>
+    <h1>Review Your Print Order – Roll {{ sticker }}</h1>
+    <div class="summary">
+      <h2>Total: €{{ '%.2f'|format(total) }} (incl. VAT)</h2>
+      <form method="POST">
+        {% for item in submitted_order %}
+          <input type="hidden" name="order[{{ loop.index0 }}][url]" value="{{ item.url }}">
+          <input type="hidden" name="order[{{ loop.index0 }}][size]" value="{{ item.size }}">
+          <input type="hidden" name="order[{{ loop.index0 }}][paper]" value="{{ item.paper }}">
+          {% if allow_border %}
+            <input type="hidden" name="order[{{ loop.index0 }}][border]" value="{{ item.border }}">
+          {% endif %}
         {% endfor %}
-      </div>
-    </div></body></html>
-    """,
-    sticker=sticker,
-    grouped_by_url=grouped_by_url,
-    total=total,
-    tax=tax,
-    type_counter=type_counter,
-    allow_border=allow_border,
-    cap_explainer=cap_explainer)
+        <div class="button-row">
+          <button type="submit" formaction="/roll/{{ sticker }}/submit-order">← Back to Edit</button>
+          <button type="submit" formaction="/roll/{{ sticker }}/finalize-order">Pay with Mollie</button>
+        </div>
+      </form>
+
+      <h3 style="margin-top:30px;">Order Breakdown:</h3>
+      {% for type, count in type_counter.items() %}
+        <p>{{ count }} × {{ type }}</p>
+      {% endfor %}
+      <p>Subtotal (excl. VAT): €{{ '%.2f'|format(total - tax) }}</p>
+      <p>VAT (21%): €{{ '%.2f'|format(tax) }}</p>
+    </div>
+    <div class="grid">
+      {% for item in submitted_order %}
+        <div class="grid-item">
+          <img src="{{ item.url }}">
+          <p>{{ item.size }} – {{ item.paper }}<br>€{{ '%.2f'|format(item.price) }}</p>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</body>
+</html>
+""", sticker=sticker, submitted_order=submitted_order, total=total, tax=tax, type_counter=type_counter, allow_border=allow_border)
 
 @app.route('/roll/<sticker>/finalize-order', methods=['POST'])
 def finalize_order(sticker):
@@ -1089,9 +1076,8 @@ def finalize_order(sticker):
     mollie_client.set_api_key(mollie_api_key)
 
     submitted_order = []
-    count_10x15 = 0
-    gallery_image_urls = set()
     total = 0.0
+    count_10x15 = 0
 
     for key in request.form:
         if key.startswith('order[') and key.endswith('][url]'):
@@ -1100,61 +1086,35 @@ def finalize_order(sticker):
             size = request.form.get(f'order[{index}][size]', '10x15')
             paper = request.form.get(f'order[{index}][paper]', 'Glossy')
             border = request.form.get(f'order[{index}][border]', 'No')
-            quantity = int(request.form.get(f'order[{index}][quantity]', '1'))
 
-            for _ in range(quantity):
-                submitted_order.append({
-                    'url': url,
-                    'size': size,
-                    'paper': paper,
-                    'border': border
-                })
+            submitted_order.append({
+                'url': url,
+                'size': size,
+                'paper': paper,
+                'border': border
+            })
 
             if size == '10x15':
-                gallery_image_urls.add(url)
-                count_10x15 += quantity
+                count_10x15 += 1
+                total += 0.75
+            elif size == 'A6':
+                total += 1.5
+            elif size == 'A5':
+                total += 3.0
+            elif size == 'A4':
+                total += 6.0
+            elif size == 'A3':
+                total += 12.0
 
     roll_size = record['fields'].get('Size', '')
-    gallery_count = len(gallery_image_urls)
 
-    if roll_size == 'Half Frame':
-        cap_amount = 20 if gallery_count <= 55 else 25
-        cap_limit = gallery_count
-    elif roll_size == '35mm':
-        cap_amount = 10 if gallery_count <= 30 else 15
-        cap_limit = gallery_count
-    else:
-        cap_amount = None
-        cap_limit = 0
-
-    running_count = 0
-    for item in submitted_order:
-        if item['size'] == '10x15':
-            if cap_amount is not None:
-                if running_count < cap_limit:
-                    price = cap_amount / cap_limit
-                else:
-                    price = 0.5
-                running_count += 1
-            else:
-                price = 0.75
-        elif item['size'] == 'A6':
-            price = 1.5
-        elif item['size'] == 'A5':
-            price = 3.0
-        elif item['size'] == 'A4':
-            price = 6.0
-        elif item['size'] == 'A3':
-            price = 12.0
+    if count_10x15 == len(submitted_order):  # All prints are 10x15
+        if roll_size == 'Half Frame':
+            capped_total = min(total, 25.0)
+        elif roll_size == '35mm' and count_10x15 >= 20:
+            capped_total = min(total, 15.0)
         else:
-            price = 0.0
-
-        total += price
-
-    if cap_amount is not None:
-        base = min(count_10x15, cap_limit)
-        extra = count_10x15 - base
-        capped_total = cap_amount + (extra * 0.5)
+            capped_total = total
     else:
         capped_total = total
 
@@ -1191,72 +1151,12 @@ def thank_you(sticker):
     fields = record['fields']
     raw_email = fields.get('Client Email', 'your email')
     email = str(raw_email).strip('"').strip("'") if raw_email else 'your email'
-    print_order = fields.get('Print Order', [])
-    film_size = fields.get('Size', '')
-    gallery_urls = set()
-    count_10x15 = 0
-    total = 0.0
-
-    flattened_order = []
-    for item in print_order:
-        quantity = int(item.get('quantity', 1))
-        for _ in range(quantity):
-            flattened_order.append({
-                'url': item.get('url', ''),
-                'size': item.get('size', '10x15'),
-                'paper': item.get('paper', 'Glossy'),
-                'border': item.get('border', 'No')
-            })
-            if item.get('size') == '10x15':
-                gallery_urls.add(item.get('url'))
-
-    gallery_count = len(gallery_urls)
-    cap_amount = None
-    cap_limit = 0
-    if film_size == '35mm':
-        cap_amount = 10 if gallery_count <= 30 else 15
-        cap_limit = gallery_count
-    elif film_size == 'Half Frame':
-        cap_amount = 20 if gallery_count <= 55 else 25
-        cap_limit = gallery_count
-
-    count_10x15 = 0
-    for item in flattened_order:
-        size = item['size']
-        if size == '10x15':
-            if cap_amount is not None:
-                if count_10x15 < cap_limit:
-                    price = cap_amount / cap_limit
-                else:
-                    price = 0.5
-                count_10x15 += 1
-            else:
-                price = 0.75
-        elif size == 'A6':
-            price = 1.5
-        elif size == 'A5':
-            price = 3.0
-        elif size == 'A4':
-            price = 6.0
-        elif size == 'A3':
-            price = 12.0
-        else:
-            price = 0.0
-        total += price
-
-    if cap_amount is not None:
-        base = min(count_10x15, cap_limit)
-        extra = count_10x15 - base
-        total = cap_amount + (extra * 0.5)
-
-    tax_rate = 0.21
-    tax = total * tax_rate / (1 + tax_rate)
 
     return render_template_string(f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <meta charset=\"UTF-8\">
+        <meta charset="UTF-8">
         <title>Thank You – Roll {sticker}</title>
         <style>
             body {{
@@ -1269,7 +1169,7 @@ def thank_you(sticker):
             }}
             .wrapper {{
                 padding: 60px 20px;
-                max-width: 700px;
+                max-width: 600px;
                 margin: auto;
             }}
             h1 {{
@@ -1281,16 +1181,9 @@ def thank_you(sticker):
                 margin-bottom: 20px;
                 line-height: 1.5;
             }}
-            img.logo {{
+            img {{
                 max-width: 200px;
                 margin-bottom: 30px;
-            }}
-            img.thumb {{
-                max-width: 120px;
-                height: auto;
-                margin: 8px;
-                border: 1px solid #ccc;
-                border-radius: 4px;
             }}
             a.button {{
                 display: inline-block;
@@ -1307,32 +1200,15 @@ def thank_you(sticker):
                 background: #333;
                 color: #fff;
             }}
-            .order-summary {{
-                margin-top: 40px;
-                text-align: left;
-            }}
-            .order-summary h2 {{
-                font-size: 1.2em;
-                border-bottom: 1px solid #ccc;
-                padding-bottom: 6px;
-                margin-bottom: 12px;
-            }}
         </style>
     </head>
     <body>
-        <div class=\"wrapper\">
-            <img class='logo' src='https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png' alt='Logo'>
+        <div class="wrapper">
+            <img src='https://cdn.sumup.store/shops/06666267/settings/th480/b23c5cae-b59a-41f7-a55e-1b145f750153.png' alt='Logo'>
             <h1>Thank you for your order!</h1>
             <p>Your payment was successful and your print order for roll <strong>{sticker}</strong> has been received.</p>
             <p>You’ll receive a confirmation email shortly at <strong>{email}</strong>.</p>
-            <a class=\"button\" href='/roll/{sticker}'>← Back to Gallery</a>
-
-            <div class=\"order-summary\">
-                <h2>Print Order Summary:</h2>
-                {''.join(f"<p>1× {item['size']} – {item['paper']} – Border: {item['border']}</p><img class='thumb' src='{item['url']}'>" for item in flattened_order)}
-                <p><strong>Total (incl. VAT):</strong> €{total:.2f}</p>
-                <p><strong>VAT (21%):</strong> €{tax:.2f}</p>
-            </div>
+            <a class="button" href='/roll/{sticker}'>← Back to Gallery</a>
         </div>
     </body>
     </html>
@@ -1372,69 +1248,35 @@ def mollie_webhook():
         client_email = fields.get("Client Email")
         client_name = fields.get("Client Name", "Client")
         submitted_order = json.loads(fields.get("Print Order JSON", "[]"))
-        film_size = fields.get("Size", '')
 
         # Mark as Paid
         update_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}/{record['id']}"
         update_response = requests.patch(update_url, headers=headers, json={"fields": {"Print Order Paid": True}})
 
-        # Flatten order
-        flattened_order = []
-        gallery_urls = set()
-        count_10x15 = 0
-        for item in submitted_order:
-            quantity = int(item.get('quantity', 1))
-            for _ in range(quantity):
-                flattened_order.append({
-                    'url': item['url'],
-                    'size': item['size'],
-                    'paper': item['paper'],
-                    'border': item['border']
-                })
-                if item['size'] == '10x15':
-                    gallery_urls.add(item['url'])
-
-        # Pricing breakdown
+        # Calculate pricing breakdown
         type_counter = {}
         subtotal = 0.0
+        count_10x15 = 0
         tax_rate = 0.21
-        gallery_count = len(gallery_urls)
-        cap_amount = None
-        cap_limit = 0
 
-        if film_size == '35mm':
-            cap_amount = 10 if gallery_count <= 30 else 15
-            cap_limit = gallery_count
-        elif film_size == 'Half Frame':
-            cap_amount = 20 if gallery_count <= 55 else 25
-            cap_limit = gallery_count
-
-        running_count = 0
-        for item in flattened_order:
+        for item in submitted_order:
             size = item['size']
             paper = item['paper']
+            price = 0.0
             if size == '10x15':
-                if cap_amount is not None:
-                    if running_count < cap_limit:
-                        price = cap_amount / cap_limit
-                    else:
-                        price = 0.5
-                    running_count += 1
-                else:
-                    price = 0.75
+                price = 0.75
+                count_10x15 += 1
             elif size == 'A6': price = 1.5
             elif size == 'A5': price = 3.0
             elif size == 'A4': price = 6.0
             elif size == 'A3': price = 12.0
-            else: price = 0.0
-            subtotal += price
-            label = f"{size} - {paper}"
-            type_counter[label] = type_counter.get(label, 0) + 1
 
-        if cap_amount is not None:
-            base = min(running_count, cap_limit)
-            extra = running_count - base
-            subtotal = cap_amount + (extra * 0.5)
+            key = f"{size} - {paper}"
+            type_counter[key] = type_counter.get(key, 0) + 1
+            subtotal += price
+
+        if count_10x15 >= 20:
+            subtotal = min(subtotal, 15.0)
 
         tax = subtotal * tax_rate / (1 + tax_rate)
         total = subtotal
@@ -1449,7 +1291,7 @@ def mollie_webhook():
         <p>Thank you for your print order. Here’s a summary of what you selected for roll <strong>{sticker}</strong>:</p>
         <ul>
         """
-        for item in flattened_order:
+        for item in submitted_order:
             email_body += f"<li><img src='{item['url']}' width='100'><br>{item['size']} – {item['paper']}, Include Scan Border: {item['border']}</li>"
         email_body += "</ul>"
         email_body += f"<p><strong>Delivery Method:</strong> {fields.get('Delivery Method', 'N/A')}</p>"
@@ -1479,7 +1321,7 @@ def mollie_webhook():
         internal_msg["Subject"] = f"A new print order for roll {sticker}"
 
         internal_body = f"<h3>Roll {sticker} – Print Order Summary</h3><ul>"
-        for item in flattened_order:
+        for item in submitted_order:
             parsed_url = urlparse(item['url'])
             filename = unquote(parsed_url.path.split("/")[-1].split("?")[0])
             internal_body += (
@@ -1501,6 +1343,6 @@ def mollie_webhook():
 
     except Exception as e:
         return f"Webhook error: {e}", 500
-        
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
