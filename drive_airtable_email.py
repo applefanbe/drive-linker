@@ -731,9 +731,19 @@ def submit_order(sticker):
             })
 
     if not submitted_order:
+        urls = request.form.getlist("selected_images")
+        for i, url in enumerate(urls):
+            submitted_order.append({
+                'url': url,
+                'size': '10x15',
+                'paper': 'Glossy',
+                'border': 'No',
+                'quantity': 1
+            })
+
+    if not submitted_order:
         return "No images selected.", 400
 
-    # Flatten the order
     expanded_order = []
     for item in submitted_order:
         for _ in range(item['quantity']):
@@ -744,7 +754,6 @@ def submit_order(sticker):
                 'border': item['border']
             })
 
-    # Count unique image URLs to determine cap logic
     url_counter = {}
     for item in expanded_order:
         url_counter[item['url']] = url_counter.get(item['url'], 0) + 1
@@ -766,7 +775,6 @@ def submit_order(sticker):
         "Caps apply only to 10x15 prints depending on film type and number of images."
     )
 
-    # Inline HTML rendering with JS logic to recalculate price per row
     html = f"""
     <!DOCTYPE html>
     <html><head><meta charset='UTF-8'>
@@ -792,7 +800,7 @@ def submit_order(sticker):
         clone.querySelectorAll('select, input').forEach(input => {{
             if (input.name.includes('order[')) {{
                 const field = input.name.split('][')[1].replace(']', '');
-                input.name = `order[${index}][${field}]`;
+                input.name = `order[${{index}}][${{field}}]`;
                 if (input.classList.contains('price-tag')) input.textContent = '€0.00';
             }}
         }});
@@ -832,7 +840,7 @@ def submit_order(sticker):
             }} else {{
                 rowTotal += getPrice(size) * quantity;
             }}
-            row.querySelector('.price-tag').textContent = `€${rowTotal.toFixed(2)}`;
+            row.querySelector('.price-tag').textContent = `€${{rowTotal.toFixed(2)}}`;
             total += rowTotal;
         }});
 
@@ -842,7 +850,7 @@ def submit_order(sticker):
             total = capAmount + extra * 0.5;
         }}
 
-        document.getElementById('totalDisplay').textContent = `Order total: €${total.toFixed(2)}`;
+        document.getElementById('totalDisplay').textContent = `Order total: €${{total.toFixed(2)}}`;
     }}
 
     document.addEventListener('DOMContentLoaded', () => {{
@@ -878,7 +886,7 @@ def submit_order(sticker):
             </select>
         """
         if allow_border_option:
-            html += f"<select name='order[{i}][border]'>\n<option value='No' {'selected' if item['border']=='No' else ''}>No Scan Border</option>\n<option value='Yes' {'selected' if item['border']=='Yes' else ''}>Print Scan Border</option>\n</select>"
+            html += f"<select name='order[{i}][border]'><option value='No' {'selected' if item['border']=='No' else ''}>No Scan Border</option><option value='Yes' {'selected' if item['border']=='Yes' else ''}>Print Scan Border</option></select>"
         else:
             html += f"<input type='hidden' name='order[{i}][border]' value='No'>"
 
@@ -898,7 +906,7 @@ def submit_order(sticker):
         </div>
       </form>
     </div>
-    </body></html>"""
+    </body></html>"""		
 
     return html
 
